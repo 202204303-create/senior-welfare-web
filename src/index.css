@@ -1,0 +1,119 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans:
+    'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue',
+    'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+
+  /* 밝고 투명한 하늘색 테마 */
+  --color-sky-25: #f5fbff;
+  --color-brand-50: #eef8ff;
+  --color-brand-100: #daf0ff;
+  --color-brand-200: #b9e3ff;
+  --color-brand-300: #85d1ff;
+  --color-brand-400: #4bb8ff;
+  --color-brand-500: #1f9bf0;
+  --color-brand-600: #0b7fd2;
+  --color-brand-700: #0a66aa;
+  --color-brand-800: #0d568b;
+  --color-brand-900: #114872;
+
+  --color-ink: #16324a;
+  --color-ink-soft: #4a6378;
+
+  --shadow-glass: 0 8px 30px -12px rgba(31, 155, 240, 0.35);
+  --shadow-glass-lg: 0 20px 50px -20px rgba(31, 155, 240, 0.45);
+
+  --radius-xl2: 1.5rem;
+}
+
+@layer base {
+  html {
+    /* 시니어 전용 타이포그래피: 기본 18px */
+    font-size: 18px;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply font-sans text-ink antialiased;
+    min-height: 100dvh;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+    background:
+      radial-gradient(1200px 600px at 10% -10%, rgba(185, 227, 255, 0.9), transparent 60%),
+      radial-gradient(900px 500px at 110% 10%, rgba(133, 209, 255, 0.55), transparent 60%),
+      radial-gradient(800px 600px at 50% 110%, rgba(218, 240, 255, 0.9), transparent 60%),
+      linear-gradient(180deg, #f5fbff 0%, #ffffff 100%);
+    background-attachment: fixed;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-brand-500);
+    outline-offset: 3px;
+    border-radius: 0.75rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@utility glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: var(--shadow-glass);
+}
+
+@utility glass-sky {
+  background: linear-gradient(135deg, rgba(218, 240, 255, 0.85), rgba(255, 255, 255, 0.7));
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow-glass);
+}
+
+@utility safe-bottom {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@utility animate-fade-up {
+  animation: fade-up 0.35s ease-out both;
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(31, 155, 240, 0.45);
+  }
+  100% {
+    box-shadow: 0 0 0 18px rgba(31, 155, 240, 0);
+  }
+}
+
+@utility animate-pulse-ring {
+  animation: pulse-ring 1.4s ease-out infinite;
+}

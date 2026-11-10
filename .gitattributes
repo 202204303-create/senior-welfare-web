@@ -1,0 +1,6 @@
+# Windows/Mac 팀원이 섞여도 줄바꿈 때문에 전체 파일이 변경되지 않도록 LF 로 통일
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff2 binary
