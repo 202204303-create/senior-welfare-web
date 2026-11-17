@@ -64,4 +64,7 @@ npm run lint       # oxlint
 
 ## 배포
 
+- 현재 배포 주소: https://senior-welfare-web.vercel.app (Vercel CLI로 수동 배포, GitHub 자동 배포는 아직 연결 전)
+- 아이폰은 사파리에서 열어 "공유 → 홈 화면에 추가"로 설치합니다. 안드로이드 크롬은 설치 배너가 뜹니다.
+
 `vercel.json`에 SPA 라우팅 설정이 포함되어 있어 Vercel에 그대로 배포할 수 있습니다.
