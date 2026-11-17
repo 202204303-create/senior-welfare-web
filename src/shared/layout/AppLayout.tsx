@@ -1,6 +1,7 @@
 import { Briefcase, HeartPulse, Home, Landmark, MapPin, Type, UserRound } from 'lucide-react'
 import { useEffect } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { useCareSync } from '@/features/care/hooks/useCareSync'
 import { useCareWatcher } from '@/features/care/hooks/useCareWatcher'
 import { FONT_SCALE_PX, useSettingsStore, type FontScale } from '@/shared/store/useSettingsStore'
 import { useUserStore } from '@/features/auth/store/useUserStore'
@@ -39,6 +40,7 @@ export function Logo() {
 
 export function AppLayout() {
   useCareWatcher()
+  useCareSync()
   const { fontScale, setFontScale } = useSettingsStore()
   const profile = useUserStore((s) => s.profile)
   const { pathname } = useLocation()

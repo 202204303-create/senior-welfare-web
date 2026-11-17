@@ -24,11 +24,28 @@ npm run lint       # oxlint
 | `/login` | 간편 로그인 | `features/auth` | 카카오·네이버 소셜 로그인 |
 | `/` | 메인 대시보드 | `features/dashboard` | 기상 확인, 오늘의 약, 추천 공고, 긴급 도움 |
 | `/my` | 내 정보 | `features/dashboard` | 프로필·보호자 정보, 글자 크기 |
-| `/care` | 안부·복약 관리 | `features/care` | 복약 체크, 미확인 시 보호자·복지사 알림 |
+| `/care` | 안부·복약 관리 | `features/care` | 복약 체크, 미확인 시 보호자·복지사 알림, 보호자 연결 코드 |
+| `/guardian` | 보호자 화면 | `features/care` | 가족 코드로 어르신의 오늘 기상·복약·알림을 실시간 확인 (로그인 불필요) |
 | `/jobs` | 일자리·프로그램 | `features/jobs` | 음성 검색, 필터 칩, 신청 내역 |
 | `/jobs/:id/apply` | 원클릭 지원서 | `features/jobs` | 프로필 기반 자동 완성 |
 | `/map` | 복지 시설 지도 | `features/map` | Geolocation, 반경 필터, 커스텀 마커 |
 | `/policies` | 맞춤 복지 혜택 | `features/policies` | 거주지·연령·소득 필터링 |
+
+## 서버 저장과 보호자 화면 (Firebase)
+
+안부·복약 기록은 Firebase(Firestore)에 저장되어 보호자가 다른 기기에서 실시간으로 확인합니다.
+
+1. [Firebase 콘솔](https://console.firebase.google.com)에서 프로젝트를 만들고 **웹 앱**을 추가합니다.
+2. **Firestore Database**를 만들고, **Authentication > 익명** 로그인을 켭니다.
+3. Firestore **규칙** 탭에 저장소의 `firestore.rules` 내용을 붙여 넣고 게시합니다.
+4. 웹 앱의 `firebaseConfig` 값을 `.env`의 `VITE_FIREBASE_*`에 넣습니다.
+
+사용 방법: 어르신 기기의 `안부·복약` 화면에 6자리 **보호자 연결 코드**가 나옵니다. 보호자는 `/guardian`에서 이 코드를 입력합니다.
+설정이 없으면 기존처럼 이 기기(브라우저)에만 저장하고, 보호자 화면은 "서버 연결이 설정되지 않았어요"를 보여 줍니다.
+
+데이터 구조: `families/{코드}`(이름·약 목록·알림 기준), `families/{코드}/days/{날짜}`(기상·복용 기록), `families/{코드}/alerts/{id}`(알림 기록)
+
+한계: 미확인 알림 판단은 어르신 기기에서 앱이 열려 있을 때 이루어집니다. 보호자 화면이 꺼져 있을 때도 휴대폰으로 알림을 보내려면 FCM(Firebase Cloud Messaging)과 서버 함수가 추가로 필요합니다.
 
 ## 백엔드 연동
 

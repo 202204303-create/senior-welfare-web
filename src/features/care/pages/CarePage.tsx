@@ -1,6 +1,12 @@
 import { BellRing, MessageCircle, Plus, Settings2, Smartphone, Trash2, UserRoundCheck } from 'lucide-react'
 import { useState } from 'react'
-import { MedChecklist, MedProgress, SOSButton, WakeUpCard } from '@/features/care/components/CareWidgets'
+import {
+  FamilyCodeCard,
+  MedChecklist,
+  MedProgress,
+  SOSButton,
+  WakeUpCard,
+} from '@/features/care/components/CareWidgets'
 import { BigButton, InfoCard, Modal, PageHeader, SelectField, TextField } from '@/shared/ui'
 import { CHANNEL_LABEL, requestPushPermission } from '@/features/care/hooks/useCareWatcher'
 import { useCareStore, type AlertChannel } from '@/features/care/store/useCareStore'
@@ -128,6 +134,7 @@ export function CarePage() {
                 </span>
               </li>
             </ul>
+            <FamilyCodeCard />
           </InfoCard>
 
           <InfoCard title="알림 설정" icon={<Settings2 />}>

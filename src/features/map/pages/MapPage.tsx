@@ -121,7 +121,7 @@ export function MapPage() {
                 </div>
                 <button
                   onClick={() => setSelectedId(null)}
-                  className="min-h-11 px-2 text-base font-bold text-ink-soft"
+                  className="min-h-11 shrink-0 whitespace-nowrap px-2 text-base font-bold text-ink-soft"
                   aria-label="닫기"
                 >
                   닫기

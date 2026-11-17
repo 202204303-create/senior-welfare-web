@@ -1,6 +1,8 @@
-import { AlarmClock, Check, Clock, Pill, Siren, Sun } from 'lucide-react'
+import { AlarmClock, Check, Clock, Cloud, CloudOff, Pill, Siren, Sun } from 'lucide-react'
 import { useState } from 'react'
-import { getMedStatus, useAlertDispatch, type MedStatus } from '@/features/care/hooks/useCareWatcher'
+import { getMedStatus, useAlertDispatch } from '@/features/care/hooks/useCareWatcher'
+import { useSyncStatus, type SyncStatus } from '@/features/care/hooks/useCareSync'
+import { STATUS_STYLE } from '@/features/care/lib/status'
 import { useNow } from '@/shared/hooks/useNow'
 import { todayKey, useCareStore } from '@/features/care/store/useCareStore'
 import { useSettingsStore } from '@/shared/store/useSettingsStore'
@@ -53,13 +55,6 @@ export function WakeUpCard() {
       </p>
     </div>
   )
-}
-
-const STATUS_STYLE: Record<MedStatus, { label: string; cls: string }> = {
-  taken: { label: '복용 완료', cls: 'bg-emerald-100 text-emerald-700' },
-  due: { label: '드실 시간', cls: 'bg-brand-600 text-white' },
-  upcoming: { label: '예정', cls: 'bg-slate-100 text-slate-600' },
-  missed: { label: '놓침', cls: 'bg-rose-100 text-rose-700' },
 }
 
 export function MedChecklist({ compact = false }: { compact?: boolean }) {
@@ -210,5 +205,42 @@ export function SOSButton({ className = '' }: { className?: string }) {
         </div>
       </Modal>
     </>
+  )
+}
+
+const SYNC_TEXT: Record<SyncStatus, string> = {
+  off: '서버 미연결 · 이 기기에만 저장돼요',
+  syncing: '서버에 저장하는 중…',
+  ok: '서버에 저장됨 · 보호자 화면에 바로 보여요',
+  error: '서버 저장 실패 · 인터넷 연결을 확인해 주세요',
+}
+
+/** 보호자가 /guardian 에서 입력할 가족 코드와 서버 저장 상태 */
+export function FamilyCodeCard() {
+  const code = useCareStore((s) => s.familyCode)
+  const status = useSyncStatus((s) => s.status)
+  const online = status === 'ok' || status === 'syncing'
+  return (
+    <div className="mt-3 rounded-2xl bg-brand-50/90 p-4 ring-1 ring-brand-100">
+      <p className="text-base font-bold">보호자 연결 코드</p>
+      <p
+        className="mt-1 font-mono text-3xl font-black tracking-[0.2em] text-brand-800"
+        aria-label={`가족 코드 ${code.split('').join(' ')}`}
+      >
+        {code}
+      </p>
+      <p className="mt-1 text-sm text-ink-soft">
+        보호자는 늘봄 주소 뒤에 <b>/guardian</b> 을 붙여 들어가 이 코드를 입력하면 돼요.
+      </p>
+      <p
+        className={`mt-2 flex items-center gap-1.5 text-sm font-bold ${
+          status === 'error' ? 'text-rose-600' : online ? 'text-emerald-700' : 'text-ink-soft'
+        }`}
+        role="status"
+      >
+        {online ? <Cloud className="size-4" aria-hidden /> : <CloudOff className="size-4" aria-hidden />}
+        {SYNC_TEXT[status]}
+      </p>
+    </div>
   )
 }
