@@ -1,6 +1,6 @@
 import { Briefcase, HeartPulse, Landmark, MapPin, ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { getOAuthUrl } from '@/features/auth/api/oauth'
 import { BigButton } from '@/shared/ui'
 import { useUserStore, type SocialProvider } from '@/features/auth/store/useUserStore'
@@ -103,6 +103,12 @@ export function LoginPage() {
           >
             로그인 없이 둘러보기
           </BigButton>
+          <Link
+            to="/guardian"
+            className="flex min-h-12 items-center justify-center rounded-2xl text-base font-bold text-violet-700 hover:bg-violet-50"
+          >
+            보호자이신가요? 보호자 화면으로
+          </Link>
         </div>
 
         <p className="mt-5 flex items-center justify-center gap-1.5 text-center text-sm text-ink-soft">

@@ -1,0 +1,17 @@
+rules_version = '2';
+
+// 늘봄 Firestore 보안 규칙
+// - 앱에 들어오면 익명 로그인을 하므로, 로그인한 사용자만 읽고 쓸 수 있게 합니다.
+// - 가족 코드(6자리)를 아는 사람만 해당 어르신의 기록에 접근할 수 있습니다.
+//   수업용 프로토타입 수준의 보호이며, 실제 서비스에서는 보호자 계정 인증이 필요합니다.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /families/{code} {
+      allow read, write: if request.auth != null && code.size() == 6;
+
+      match /{sub=**} {
+        allow read, write: if request.auth != null;
+      }
+    }
+  }
+}

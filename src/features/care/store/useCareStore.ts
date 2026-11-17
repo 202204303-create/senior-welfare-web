@@ -12,7 +12,7 @@ export interface AlertLog {
   recipients: string[]
 }
 
-interface DayRecord {
+export interface DayRecord {
   wakeUpAt?: string // ISO
   takenMeds: Record<string, string> // medId -> ISO
 }
@@ -25,6 +25,7 @@ interface CareState {
   channels: AlertChannel[]
   alerts: AlertLog[]
   sentAlertKeys: string[] // 중복 발송 방지 키
+  familyCode: string // 보호자가 /guardian 에서 입력하는 가족 코드
 
   checkWakeUp: () => void
   toggleMed: (medId: string) => void
@@ -41,6 +42,14 @@ export const todayKey = (d = new Date()) => {
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
+}
+
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // 헷갈리는 0·O·1·I 제외
+
+/** 6자리 가족 코드를 만듭니다. 예: K7MP3Q */
+export function makeFamilyCode() {
+  const bytes = crypto.getRandomValues(new Uint8Array(6))
+  return Array.from(bytes, (b) => CODE_CHARS[b % CODE_CHARS.length]).join('')
 }
 
 const DEFAULT_MEDS: Medication[] = [
@@ -60,6 +69,7 @@ export const useCareStore = create<CareState>()(
       channels: ['webpush', 'kakao'],
       alerts: [],
       sentAlertKeys: [],
+      familyCode: makeFamilyCode(),
 
       checkWakeUp: () =>
         set((s) => {
@@ -108,7 +118,16 @@ export const useCareStore = create<CareState>()(
 
       clearAlerts: () => set({ alerts: [] }),
     }),
-    { name: 'neulbom-care' },
+    {
+      name: 'neulbom-care',
+      version: 1,
+      // v0 에는 가족 코드가 없었으므로 새로 만들어 저장합니다.
+      migrate: (persisted, version) => {
+        const state = persisted as Partial<CareState>
+        if (version < 1 && !state.familyCode) state.familyCode = makeFamilyCode()
+        return state as CareState
+      },
+    },
   ),
 )
 
