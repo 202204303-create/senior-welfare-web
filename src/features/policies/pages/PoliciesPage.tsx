@@ -83,7 +83,7 @@ export function PoliciesPage() {
           <div className="grid size-16 place-items-center rounded-2xl bg-white/25 backdrop-blur">
             <Gift className="size-9" aria-hidden />
           </div>
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 basis-48">
             <p className="text-base text-white/90">
               {cond.region} · 만 {getAge(cond.birthYear)}세 · {cond.income}
             </p>
