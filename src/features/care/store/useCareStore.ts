@@ -4,12 +4,21 @@ import type { Medication } from '@/features/care/types'
 
 export type AlertChannel = 'webpush' | 'kakao' | 'sms'
 
+export type AlertKind = 'wake' | 'med' | 'sos'
+
 export interface AlertLog {
   id: string
+  /** 중복 방지 키 (예: 2026-11-17-wake, 2026-11-17-med-m-1, sos-1731800000000) */
+  key?: string
+  kind?: AlertKind
   at: string
   reason: string
   channels: AlertChannel[]
   recipients: string[]
+  /** 보호자가 확인한 시각 (ISO) */
+  ackAt?: string
+  /** 확인한 보호자 이름 */
+  ackBy?: string
 }
 
 export interface DayRecord {
@@ -26,6 +35,7 @@ interface CareState {
   alerts: AlertLog[]
   sentAlertKeys: string[] // 중복 발송 방지 키
   familyCode: string // 보호자가 /guardian 에서 입력하는 가족 코드
+  remindedKeys: string[] // 어르신에게 이미 알려 드린 복약·기상 안내 (중복 방지)
 
   checkWakeUp: () => void
   toggleMed: (medId: string) => void
@@ -35,6 +45,8 @@ interface CareState {
   toggleChannel: (c: AlertChannel) => void
   pushAlert: (key: string, alert: Omit<AlertLog, 'id' | 'at'>) => boolean
   clearAlerts: () => void
+  markReminded: (key: string) => boolean
+  applyAcks: (acks: Pick<AlertLog, 'id' | 'ackAt' | 'ackBy'>[]) => void
 }
 
 export const todayKey = (d = new Date()) => {
@@ -42,6 +54,13 @@ export const todayKey = (d = new Date()) => {
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
+}
+
+/** 알림 키로 종류를 정합니다. */
+export function alertKind(key: string): AlertKind {
+  if (key.startsWith('sos-')) return 'sos'
+  if (key.endsWith('-wake')) return 'wake'
+  return 'med'
 }
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // 헷갈리는 0·O·1·I 제외
@@ -70,6 +89,7 @@ export const useCareStore = create<CareState>()(
       alerts: [],
       sentAlertKeys: [],
       familyCode: makeFamilyCode(),
+      remindedKeys: [],
 
       checkWakeUp: () =>
         set((s) => {
@@ -108,15 +128,35 @@ export const useCareStore = create<CareState>()(
         if (get().sentAlertKeys.includes(key)) return false
         set((s) => ({
           sentAlertKeys: [...s.sentAlertKeys, key].slice(-100),
-          alerts: [{ ...alert, id: `a-${Date.now()}`, at: new Date().toISOString() }, ...s.alerts].slice(
-            0,
-            50,
-          ),
+          alerts: [
+            { ...alert, key, kind: alertKind(key), id: `a-${Date.now()}`, at: new Date().toISOString() },
+            ...s.alerts,
+          ].slice(0, 50),
         }))
         return true
       },
 
       clearAlerts: () => set({ alerts: [] }),
+
+      markReminded: (key) => {
+        if (get().remindedKeys.includes(key)) return false
+        set((s) => ({ remindedKeys: [...s.remindedKeys, key].slice(-100) }))
+        return true
+      },
+
+      // 서버에서 받은 보호자 확인(ackAt)을 내 알림 기록에 반영합니다.
+      applyAcks: (acks) =>
+        set((s) => {
+          const byId = new Map(acks.filter((a) => a.ackAt).map((a) => [a.id, a]))
+          let changed = false
+          const alerts = s.alerts.map((a) => {
+            const ack = byId.get(a.id)
+            if (!ack || a.ackAt === ack.ackAt) return a
+            changed = true
+            return { ...a, ackAt: ack.ackAt, ackBy: ack.ackBy }
+          })
+          return changed ? { alerts } : {}
+        }),
     }),
     {
       name: 'neulbom-care',
@@ -125,6 +165,7 @@ export const useCareStore = create<CareState>()(
       migrate: (persisted, version) => {
         const state = persisted as Partial<CareState>
         if (version < 1 && !state.familyCode) state.familyCode = makeFamilyCode()
+        if (!state.remindedKeys) state.remindedKeys = []
         return state as CareState
       },
     },
