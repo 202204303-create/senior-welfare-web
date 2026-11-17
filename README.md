@@ -38,10 +38,10 @@ npm run lint       # oxlint
 1. [Firebase 콘솔](https://console.firebase.google.com)에서 프로젝트를 만들고 **웹 앱**을 추가합니다.
 2. **Firestore Database**를 만들고, **Authentication > 익명** 로그인을 켭니다.
 3. Firestore **규칙** 탭에 저장소의 `firestore.rules` 내용을 붙여 넣고 게시합니다.
-4. 웹 앱의 `firebaseConfig` 값을 `.env`의 `VITE_FIREBASE_*`에 넣습니다.
+4. 팀 프로젝트(`neulbom-c7096`) 설정값은 `src/shared/api/firebase.ts`에 들어 있어 `.env` 없이 바로 동작합니다. 다른 프로젝트를 쓸 때만 `.env`의 `VITE_FIREBASE_*`에 값을 넣습니다.
 
 사용 방법: 어르신 기기의 `안부·복약` 화면에 6자리 **보호자 연결 코드**가 나옵니다. 보호자는 `/guardian`에서 이 코드를 입력합니다.
-설정이 없으면 기존처럼 이 기기(브라우저)에만 저장하고, 보호자 화면은 "서버 연결이 설정되지 않았어요"를 보여 줍니다.
+`.env`에 `VITE_FIREBASE_DISABLED=true`를 넣으면 서버 없이 이 기기(브라우저)에만 저장하고, 보호자 화면은 "서버 연결이 설정되지 않았어요"를 보여 줍니다.
 
 데이터 구조: `families/{코드}`(이름·약 목록·알림 기준), `families/{코드}/days/{날짜}`(기상·복용 기록), `families/{코드}/alerts/{id}`(알림 기록)
 

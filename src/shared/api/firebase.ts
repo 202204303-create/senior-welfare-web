@@ -3,17 +3,31 @@ import { connectAuthEmulator, getAuth, onAuthStateChanged, signInAnonymously, ty
 import { connectFirestoreEmulator, initializeFirestore, type Firestore } from 'firebase/firestore'
 
 /**
- * Firebase 설정. .env 에 VITE_FIREBASE_* 값이 있으면 켜지고,
- * 없으면 지금처럼 브라우저(localStorage)에만 저장하며 동작합니다.
+ * 늘봄 팀 Firebase 프로젝트(neulbom-c7096)의 웹 앱 설정.
+ * 웹 앱 설정값은 브라우저에 그대로 전달되는 공개값이라 코드에 넣어도 됩니다.
+ * 데이터 보호는 Firestore 보안 규칙(firestore.rules)이 맡습니다.
  */
-const config = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+const TEAM_CONFIG = {
+  apiKey: 'AIzaSyBWca1NE5w0TM_DV4wF1pXNKZQwZ1wB1sY',
+  authDomain: 'neulbom-c7096.firebaseapp.com',
+  projectId: 'neulbom-c7096',
+  appId: '1:640806551684:web:d3243773fc5f858bad82d1',
 }
 
-export const isFirebaseEnabled = Boolean(config.apiKey && config.projectId)
+/**
+ * .env 에 VITE_FIREBASE_* 값을 넣으면 다른 프로젝트로 바꿀 수 있습니다.
+ * VITE_FIREBASE_DISABLED=true 이면 서버 없이 브라우저(localStorage)에만 저장합니다.
+ */
+const env = import.meta.env
+const config = {
+  apiKey: env.VITE_FIREBASE_API_KEY || TEAM_CONFIG.apiKey,
+  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || TEAM_CONFIG.authDomain,
+  projectId: env.VITE_FIREBASE_PROJECT_ID || TEAM_CONFIG.projectId,
+  appId: env.VITE_FIREBASE_APP_ID || TEAM_CONFIG.appId,
+}
+
+export const isFirebaseEnabled =
+  env.VITE_FIREBASE_DISABLED !== 'true' && Boolean(config.apiKey && config.projectId)
 
 let app: FirebaseApp | null = null
 let db: Firestore | null = null
