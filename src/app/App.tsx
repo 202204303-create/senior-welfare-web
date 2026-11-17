@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AppLayout } from '@/shared/layout/AppLayout'
 import { CarePage } from '@/features/care/pages/CarePage'
+import { GuardianPage } from '@/features/care/pages/GuardianPage'
 import { DashboardPage } from '@/features/dashboard/pages/DashboardPage'
 import { JobApplyPage } from '@/features/jobs/pages/JobApplyPage'
 import { JobsPage } from '@/features/jobs/pages/JobsPage'
@@ -23,6 +24,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/guardian" element={<GuardianPage />} />
       <Route
         element={
           <RequireAuth>
