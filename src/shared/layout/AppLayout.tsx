@@ -4,7 +4,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useCareWatcher } from '@/features/care/hooks/useCareWatcher'
 import { FONT_SCALE_PX, useSettingsStore, type FontScale } from '@/shared/store/useSettingsStore'
 import { useUserStore } from '@/features/auth/store/useUserStore'
-import { Toast } from '@/shared/ui'
+import { InstallBanner, Toast } from '@/shared/ui'
 
 const NAV = [
   { to: '/', label: '홈', Icon: Home, end: true },
@@ -112,6 +112,7 @@ export function AppLayout() {
       </header>
 
       <main id="main" className="mx-auto max-w-6xl px-4 pb-32 pt-5 sm:px-6 md:pb-12">
+        <InstallBanner />
         <Outlet />
       </main>
 

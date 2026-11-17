@@ -37,6 +37,14 @@ npm run lint       # oxlint
 - 카카오톡·SMS 알림 발송은 백엔드에서 처리해야 합니다. 현재는 `features/care/hooks/useCareWatcher.ts`가 발송 요청을 기록하고 웹 푸시만 직접 띄웁니다.
 - 소셜 로그인 콜백 `/auth/{provider}/callback`의 토큰 교환은 백엔드에서 처리합니다.
 
+## PWA (홈 화면 설치)
+
+- `vite-plugin-pwa`가 빌드 때 매니페스트와 서비스 워커(`sw.js`)를 만듭니다. 설정은 `vite.config.ts`에 있습니다.
+- 안드로이드 크롬에서는 앱 설치 배너가 뜨고, 아이폰 사파리에서는 "공유 → 홈 화면에 추가" 안내가 뜹니다. (`shared/ui/InstallBanner.tsx`)
+- 서비스 워커는 HTTPS(또는 localhost)에서만 동작합니다. 개발 서버(`npm run dev`)에서는 꺼져 있으므로 `npm run build && npm run preview`로 확인하세요.
+- 아이콘은 `public/icon.svg`가 원본이고, `pwa-*.png`는 여기서 뽑은 이미지입니다. 마스커블 원본은 `scripts/icon-maskable.svg`입니다.
+- 서버 푸시(복약 알림)는 백엔드가 준비된 뒤 서비스 워커에 `push` 이벤트 처리를 추가해야 합니다. 아직 구현 전입니다.
+
 ## 배포
 
 `vercel.json`에 SPA 라우팅 설정이 포함되어 있어 Vercel에 그대로 배포할 수 있습니다.
