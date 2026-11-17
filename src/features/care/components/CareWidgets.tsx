@@ -1,10 +1,22 @@
-import { AlarmClock, Check, Clock, Cloud, CloudOff, Pill, Siren, Sun } from 'lucide-react'
+import {
+  AlarmClock,
+  BellRing,
+  Check,
+  CheckCheck,
+  Clock,
+  Cloud,
+  CloudOff,
+  Hourglass,
+  Pill,
+  Siren,
+  Sun,
+} from 'lucide-react'
 import { useState } from 'react'
 import { getMedStatus, useAlertDispatch } from '@/features/care/hooks/useCareWatcher'
 import { useSyncStatus, type SyncStatus } from '@/features/care/hooks/useCareSync'
 import { STATUS_STYLE } from '@/features/care/lib/status'
 import { useNow } from '@/shared/hooks/useNow'
-import { todayKey, useCareStore } from '@/features/care/store/useCareStore'
+import { timeToMinutes, todayKey, useCareStore, type AlertLog } from '@/features/care/store/useCareStore'
 import { useSettingsStore } from '@/shared/store/useSettingsStore'
 import { BigButton, Modal } from '@/shared/ui'
 
@@ -176,6 +188,7 @@ export function SOSButton({ className = '' }: { className?: string }) {
       >
         긴급 도움 요청
       </BigButton>
+      <SosStatus />
       <Modal open={open} onClose={() => setOpen(false)} title="긴급 도움을 요청할까요?">
         <p className="mb-6 text-lg text-ink-soft">
           보호자와 담당 사회복지사에게 지금 바로 알림을 보내요. 위급한 상황이면 119에 먼저 전화해 주세요.
@@ -242,5 +255,101 @@ export function FamilyCodeCard() {
         {SYNC_TEXT[status]}
       </p>
     </div>
+  )
+}
+
+/** 보호자가 알림을 확인했는지 보여 주는 한 줄 */
+export function AlertAckLine({ alert }: { alert: AlertLog }) {
+  if (alert.ackAt)
+    return (
+      <p className="mt-1.5 flex items-center gap-1.5 text-sm font-bold text-emerald-700">
+        <CheckCheck className="size-4" aria-hidden />
+        {alert.ackBy ?? '보호자'}님이 확인했어요 · {fmtTime(alert.ackAt)}
+      </p>
+    )
+  return (
+    <p className="mt-1.5 flex items-center gap-1.5 text-sm font-bold text-amber-700">
+      <Hourglass className="size-4" aria-hidden />
+      보호자 확인을 기다리는 중
+    </p>
+  )
+}
+
+const SOS_SHOW_MS = 3 * 60 * 60 * 1000 // 최근 3시간 안의 긴급 요청만 표시
+
+/** 긴급 요청을 보낸 뒤 보호자가 확인했는지 바로 보여 줍니다. */
+function SosStatus() {
+  const now = useNow(30_000)
+  const alerts = useCareStore((s) => s.alerts)
+  const last = alerts.find((a) => a.kind === 'sos')
+  if (!last || now.getTime() - new Date(last.at).getTime() > SOS_SHOW_MS) return null
+  return (
+    <div
+      role="status"
+      className={`mt-3 rounded-2xl p-4 ring-2 ${last.ackAt ? 'bg-emerald-50 ring-emerald-200' : 'bg-amber-50 ring-amber-200'}`}
+    >
+      <p className="text-base font-bold">{fmtTime(last.at)}에 긴급 도움을 요청했어요.</p>
+      <AlertAckLine alert={last} />
+    </div>
+  )
+}
+
+/**
+ * 약 드실 시간이 되었는데 아직 체크하지 않은 약을 화면 위에 크게 보여 줍니다.
+ * '먹었어요'를 누르면 바로 복용 기록이 남습니다.
+ */
+export function MedReminderBanner() {
+  const now = useNow(30_000)
+  const { medications, records, toggleMed } = useCareStore()
+  const showToast = useSettingsStore((s) => s.showToast)
+  const [later, setLater] = useState<string[]>([])
+  const taken = records[todayKey(now)]?.takenMeds ?? {}
+  const nowMin = now.getHours() * 60 + now.getMinutes()
+  const pending = medications.filter(
+    (m) => !taken[m.id] && nowMin >= timeToMinutes(m.time) && !later.includes(m.id),
+  )
+  if (pending.length === 0) return null
+
+  return (
+    <section
+      className="mb-5 animate-fade-up rounded-3xl bg-white p-5 shadow-glass-lg ring-2 ring-brand-400"
+      aria-label="지금 드실 약"
+    >
+      <p className="mb-3 flex items-center gap-2 text-xl font-black text-brand-800">
+        <BellRing className="size-6" aria-hidden /> 약 드실 시간이에요
+      </p>
+      <ul className="space-y-3">
+        {pending.map((m) => (
+          <li key={m.id} className="rounded-2xl bg-brand-50/80 p-4">
+            <p className="text-lg font-extrabold">{m.name}</p>
+            <p className="mb-3 text-base text-ink-soft">
+              {m.slot} {m.time}
+              {m.memo ? ` · ${m.memo}` : ''}
+            </p>
+            <div className="flex gap-2">
+              <BigButton
+                size="lg"
+                icon={<Check />}
+                className="flex-1 whitespace-nowrap"
+                onClick={() => {
+                  toggleMed(m.id)
+                  showToast(`${m.name} 복용을 기록했어요. 보호자 화면에도 바로 보여요.`, 'success')
+                }}
+              >
+                먹었어요
+              </BigButton>
+              <BigButton
+                size="md"
+                variant="ghost"
+                className="shrink-0 whitespace-nowrap"
+                onClick={() => setLater((l) => [...l, m.id])}
+              >
+                나중에
+              </BigButton>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }

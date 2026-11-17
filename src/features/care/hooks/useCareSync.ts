@@ -1,7 +1,14 @@
 import { useEffect, useRef } from 'react'
 import { create } from 'zustand'
 import { isFirebaseEnabled } from '@/shared/api/firebase'
-import { saveAlert, saveDayRecord, saveFamilyInfo } from '@/features/care/api/family'
+import {
+  saveAlert,
+  saveDayRecord,
+  saveFamilyInfo,
+  saveHeartbeat,
+  watchAlerts,
+} from '@/features/care/api/family'
+import { remind } from '@/features/care/hooks/useCareReminder'
 import { todayKey, useCareStore, type DayRecord } from '@/features/care/store/useCareStore'
 import { useUserStore } from '@/features/auth/store/useUserStore'
 
@@ -14,6 +21,7 @@ export const useSyncStatus = create<{ status: SyncStatus; set: (s: SyncStatus) =
 }))
 
 const RECENT_DAYS = 7
+const HEARTBEAT_MS = 5 * 60 * 1000 // 5분마다 '앱 사용 중'을 알림
 
 function track(p: Promise<unknown>) {
   const { set } = useSyncStatus.getState()
@@ -71,4 +79,41 @@ export function useCareSync() {
     fresh.forEach((a) => sentIds.current.add(a.id))
     if (fresh.length) track(Promise.all(fresh.map((a) => saveAlert(familyCode, a))))
   }, [active, familyCode, alerts])
+
+  // 마지막 활동 시각: 앱을 열 때, 다시 화면에 돌아올 때, 5분마다 올립니다.
+  useEffect(() => {
+    if (!active) return
+    const beat = () => {
+      if (document.visibilityState === 'visible') saveHeartbeat(familyCode).catch(() => {})
+    }
+    beat()
+    const id = setInterval(beat, HEARTBEAT_MS)
+    document.addEventListener('visibilitychange', beat)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', beat)
+    }
+  }, [active, familyCode])
+
+  // 보호자의 '확인했어요'를 받아 내 알림 기록에 표시하고, 새로 확인되면 소리로 알려 드립니다.
+  useEffect(() => {
+    if (!active) return
+    return watchAlerts(
+      familyCode,
+      (list) => {
+        const local = new Map(useCareStore.getState().alerts.map((a) => [a.id, a]))
+        const newlyAcked = list.filter((a) => a.ackAt && local.has(a.id) && !local.get(a.id)!.ackAt)
+        useCareStore.getState().applyAcks(list)
+        if (newlyAcked.length) {
+          const who = newlyAcked[0].ackBy ?? '보호자'
+          const sos = newlyAcked.some((a) => a.kind === 'sos')
+          remind(
+            sos ? `${who}님이 긴급 요청을 확인했어요. 곧 연락드릴 거예요.` : `${who}님이 알림을 확인했어요.`,
+            'success',
+          )
+        }
+      },
+      (e) => console.warn('[늘봄] 확인 응답 받기 실패', e),
+    )
+  }, [active, familyCode])
 }

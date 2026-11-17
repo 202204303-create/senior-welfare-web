@@ -1,6 +1,17 @@
-import { BellRing, MessageCircle, Plus, Settings2, Smartphone, Trash2, UserRoundCheck } from 'lucide-react'
+import {
+  BellRing,
+  MessageCircle,
+  Plus,
+  Settings2,
+  Smartphone,
+  Trash2,
+  UserRoundCheck,
+  Volume2,
+  VolumeX,
+} from 'lucide-react'
 import { useState } from 'react'
 import {
+  AlertAckLine,
   FamilyCodeCard,
   MedChecklist,
   MedProgress,
@@ -11,6 +22,7 @@ import { BigButton, InfoCard, Modal, PageHeader, SelectField, TextField } from '
 import { CHANNEL_LABEL, requestPushPermission } from '@/features/care/hooks/useCareWatcher'
 import { useCareStore, type AlertChannel } from '@/features/care/store/useCareStore'
 import { useSettingsStore } from '@/shared/store/useSettingsStore'
+import { speak } from '@/shared/lib/notify'
 import { useUserStore } from '@/features/auth/store/useUserStore'
 import type { MedSlot } from '@/features/care/types'
 
@@ -26,6 +38,8 @@ export function CarePage() {
   const care = useCareStore()
   const profile = useUserStore((s) => s.profile)
   const showToast = useSettingsStore((s) => s.showToast)
+  const voiceGuide = useSettingsStore((s) => s.voiceGuide)
+  const setVoiceGuide = useSettingsStore((s) => s.setVoiceGuide)
   const [addOpen, setAddOpen] = useState(false)
   const [manage, setManage] = useState(false)
   const [form, setForm] = useState({ name: '', slot: '아침' as MedSlot, time: '08:00', memo: '' })
@@ -177,6 +191,29 @@ export function CarePage() {
             >
               이 기기에서 웹 푸시 허용하기
             </BigButton>
+            <button
+              onClick={() => {
+                const next = !voiceGuide
+                setVoiceGuide(next)
+                if (next) speak('약 드실 시간이 되면 이렇게 소리로 알려 드릴게요.')
+              }}
+              aria-pressed={voiceGuide}
+              className={`mt-3 flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl px-4 text-left text-base font-bold ring-2 transition ${
+                voiceGuide
+                  ? 'bg-brand-50 text-brand-800 ring-brand-300'
+                  : 'bg-white/80 text-ink-soft ring-brand-100'
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                {voiceGuide ? (
+                  <Volume2 className="size-6" aria-hidden />
+                ) : (
+                  <VolumeX className="size-6" aria-hidden />
+                )}
+                약·기상 시간 음성 안내
+              </span>
+              <span className="rounded-full bg-white px-3 py-1 text-sm">{voiceGuide ? '켜짐' : '꺼짐'}</span>
+            </button>
           </InfoCard>
 
           <InfoCard
@@ -197,7 +234,10 @@ export function CarePage() {
             ) : (
               <ul className="max-h-80 space-y-2 overflow-y-auto">
                 {care.alerts.map((a) => (
-                  <li key={a.id} className="rounded-2xl bg-amber-50/90 p-4 ring-1 ring-amber-100">
+                  <li
+                    key={a.id}
+                    className={`rounded-2xl p-4 ring-1 ${a.kind === 'sos' ? 'bg-rose-50/90 ring-rose-200' : 'bg-amber-50/90 ring-amber-100'}`}
+                  >
                     <p className="text-base font-semibold">{a.reason}</p>
                     <p className="mt-1 text-sm text-ink-soft">
                       {new Date(a.at).toLocaleString('ko-KR', {
@@ -210,6 +250,7 @@ export function CarePage() {
                       {a.channels.map((c) => CHANNEL_LABEL[c]).join(', ') || '채널 없음'} →{' '}
                       {a.recipients.join(', ')}
                     </p>
+                    <AlertAckLine alert={a} />
                   </li>
                 ))}
               </ul>

@@ -1,12 +1,14 @@
 import {
   collection,
   doc,
+  documentId,
   limit,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
   setDoc,
+  where,
 } from 'firebase/firestore'
 import { ensureSignedIn, getDb } from '@/shared/api/firebase'
 import type { AlertLog, DayRecord } from '@/features/care/store/useCareStore'
@@ -15,9 +17,9 @@ import type { Medication } from '@/features/care/types'
 /**
  * Firestore 구조 (가족 코드 하나 = 어르신 한 분)
  *
- * families/{code}               어르신 이름, 보호자 이름, 약 목록, 알림 기준
+ * families/{code}               어르신 이름, 보호자 이름, 약 목록, 알림 기준, 마지막 활동 시각
  * families/{code}/days/{날짜}   그날의 기상 시각과 복용 기록
- * families/{code}/alerts/{id}   미확인·긴급 알림 기록
+ * families/{code}/alerts/{id}   미확인·긴급 알림 기록 (+ 보호자 확인 시각 ackAt, 확인한 사람 ackBy)
  */
 
 export interface FamilyInfo {
@@ -27,6 +29,8 @@ export interface FamilyInfo {
   medications: Medication[]
   wakeUpDeadline: string
   medGraceMinutes: number
+  /** 어르신 앱이 마지막으로 열려 있던 시각 (ISO) */
+  lastSeenAt?: string
 }
 
 const familyRef = (code: string) => doc(getDb()!, 'families', code)
@@ -49,10 +53,33 @@ export async function saveDayRecord(code: string, dateKey: string, rec: DayRecor
 
 export async function saveAlert(code: string, alert: AlertLog) {
   await ensureSignedIn()
-  await setDoc(doc(familyRef(code), 'alerts', alert.id), { ...alert, createdAt: serverTimestamp() })
+  // merge: 보호자가 남긴 확인(ackAt)을 덮어쓰지 않도록 합칩니다.
+  await setDoc(
+    doc(familyRef(code), 'alerts', alert.id),
+    { ...alert, createdAt: serverTimestamp() },
+    { merge: true },
+  )
 }
 
-// ---------- 서버 → 보호자 화면 (실시간) ----------
+/** 어르신 앱이 열려 있음을 알립니다. 보호자 화면의 '마지막 활동'에 쓰입니다. */
+export async function saveHeartbeat(code: string) {
+  await ensureSignedIn()
+  await setDoc(familyRef(code), { lastSeenAt: new Date().toISOString() }, { merge: true })
+}
+
+// ---------- 보호자 화면 → 서버 ----------
+
+/** 보호자가 알림을 확인했다고 남깁니다. 어르신 화면에 '확인했어요'가 표시됩니다. */
+export async function ackAlert(code: string, alertId: string, ackBy: string) {
+  await ensureSignedIn()
+  await setDoc(
+    doc(familyRef(code), 'alerts', alertId),
+    { ackAt: new Date().toISOString(), ackBy },
+    { merge: true },
+  )
+}
+
+// ---------- 서버 → 화면 (실시간) ----------
 
 type Unsubscribe = () => void
 
@@ -70,18 +97,23 @@ export function watchFamily(
   )
 }
 
-export function watchDay(
+/** sinceKey(YYYY-MM-DD) 이후 날짜별 기록을 { 날짜: 기록 } 으로 받습니다. */
+export function watchDays(
   code: string,
-  dateKey: string,
-  onData: (rec: DayRecord) => void,
+  sinceKey: string,
+  onData: (days: Record<string, DayRecord>) => void,
   onError: (e: Error) => void,
 ): Unsubscribe {
   return withSignIn(onError, () =>
     onSnapshot(
-      doc(familyRef(code), 'days', dateKey),
+      query(collection(familyRef(code), 'days'), where(documentId(), '>=', sinceKey)),
       (snap) => {
-        const d = snap.data()
-        onData({ wakeUpAt: d?.wakeUpAt ?? undefined, takenMeds: d?.takenMeds ?? {} })
+        const days: Record<string, DayRecord> = {}
+        snap.forEach((d) => {
+          const v = d.data()
+          days[d.id] = { wakeUpAt: v.wakeUpAt ?? undefined, takenMeds: v.takenMeds ?? {} }
+        })
+        onData(days)
       },
       onError,
     ),
