@@ -1,6 +1,8 @@
 import { Briefcase, HeartPulse, Home, Landmark, MapPin, Type, UserRound } from 'lucide-react'
 import { useEffect } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { MedReminderBanner } from '@/features/care/components/CareWidgets'
+import { useCareReminder } from '@/features/care/hooks/useCareReminder'
 import { useCareSync } from '@/features/care/hooks/useCareSync'
 import { useCareWatcher } from '@/features/care/hooks/useCareWatcher'
 import { FONT_SCALE_PX, useSettingsStore, type FontScale } from '@/shared/store/useSettingsStore'
@@ -41,6 +43,7 @@ export function Logo() {
 export function AppLayout() {
   useCareWatcher()
   useCareSync()
+  useCareReminder()
   const { fontScale, setFontScale } = useSettingsStore()
   const profile = useUserStore((s) => s.profile)
   const { pathname } = useLocation()
@@ -115,6 +118,8 @@ export function AppLayout() {
 
       <main id="main" className="mx-auto max-w-6xl px-4 pb-32 pt-5 sm:px-6 md:pb-12">
         <InstallBanner />
+        {/* 안부·복약 화면에는 복약 체크 목록이 있으므로 배너를 띄우지 않습니다. */}
+        {pathname !== '/care' && <MedReminderBanner />}
         <Outlet />
       </main>
 
