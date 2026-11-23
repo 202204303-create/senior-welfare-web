@@ -135,6 +135,7 @@
 | 11/23 | 202204303-create | README에 약 종류·복용 시간 설정 방법과 한계(요일별 복용·놓침 기준 고정) 추가 | #20 |
 | 11/23 | 202204303-create | 로그인 방식 변경: 카카오·네이버 대신 **사용자·보호자·복지사 시연용 계정** 3개, 역할별 화면 이동·로그아웃, 복지사 화면 `/worker` 추가 | #22 |
 | 11/23 | 202204303-create | 어르신이 일어났어요·먹었어요를 누르면 **보호자 휴대폰으로 알림**(`/api/notify-checkin`, 서버가 기록 확인 후 하루 한 번), 서버 알림 로그에 보낸 기기 수·실패 이유 기록, 서버 시험 4개 추가 | #23 |
+| 11/23 | 202204303-create | 보호자 폰의 "앱이 닫혀 있을 때의 알림 등록 실패" 원인 수정: Firebase 설정에 휴대폰 알림에 필수인 `messagingSenderId` 가 빠져 있었음 | #24 |
 
 ### 남은 할 일
 
@@ -221,7 +222,7 @@ npm run test:api     # 서버(알림 보내기) 시험
 | `VITE_USE_MOCK` | `false` 면 일자리·시설·혜택을 실제 API 로 호출 | Mock 데이터 |
 | `VITE_API_BASE_URL` | 위 API 주소 | - |
 | `VITE_KAKAO_MAP_KEY` | 카카오맵 JavaScript 키 | 자체 간이 지도 |
-| `VITE_FIREBASE_*` | 다른 Firebase 프로젝트를 쓸 때 | 팀 프로젝트(`neulbom-c7096`) |
+| `VITE_FIREBASE_*` | 다른 Firebase 프로젝트를 쓸 때 (휴대폰 알림에는 `VITE_FIREBASE_MESSAGING_SENDER_ID` 도 필요) | 팀 프로젝트(`neulbom-c7096`) |
 | `VITE_FIREBASE_DISABLED` | `true` 면 서버 없이 기기에만 저장 | 서버 저장 사용 |
 | `VITE_FIREBASE_VAPID_KEY` | 웹 푸시 공개 키 (코드의 `TEAM_VAPID_KEY` 대신) | 앱이 열려 있을 때만 휴대폰 알림 |
 
