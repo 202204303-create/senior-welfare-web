@@ -8,6 +8,7 @@ import {
   CloudOff,
   Hourglass,
   Pill,
+  Share2,
   Siren,
   Sun,
 } from 'lucide-react'
@@ -17,6 +18,7 @@ import { useSyncStatus, type SyncStatus } from '@/features/care/hooks/useCareSyn
 import { WAKE_REMIND_BEFORE_MIN } from '@/features/care/hooks/useCareReminder'
 import { STATUS_STYLE } from '@/features/care/lib/status'
 import { useNow } from '@/shared/hooks/useNow'
+import { useUserStore } from '@/features/auth/store/useUserStore'
 import { timeToMinutes, todayKey, useCareStore, type AlertLog } from '@/features/care/store/useCareStore'
 import { BigButton, Modal, StatusNote } from '@/shared/ui'
 
@@ -24,7 +26,10 @@ const fmtTime = (iso: string) =>
   new Date(iso).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })
 
 export function WakeUpCard() {
-  const { records, checkWakeUp, wakeUpDeadline } = useCareStore()
+  const now = useNow(30_000)
+  const { records, checkWakeUp, wakeUpDeadline, alerts } = useCareStore()
+  const overdue = now.getHours() * 60 + now.getMinutes() > timeToMinutes(wakeUpDeadline)
+  const alerted = alerts.some((a) => a.key === `${todayKey(now)}-wake`)
   const sync = useSyncStatus((s) => s.status)
   const wakeUpAt = records[todayKey()]?.wakeUpAt
 
@@ -54,7 +59,9 @@ export function WakeUpCard() {
   return (
     <div className="relative overflow-hidden rounded-3xl bg-linear-to-br from-brand-300 via-brand-400 to-brand-600 p-6 text-white shadow-glass-lg">
       <Sun className="absolute -right-6 -top-6 size-36 text-white/20" aria-hidden />
-      <p className="relative text-lg font-semibold text-white/90">좋은 아침이에요!</p>
+      <p className="relative text-lg font-semibold text-white/90">
+        {overdue ? '오늘 안부 확인이 아직 없어요' : '좋은 아침이에요!'}
+      </p>
       <p className="relative mb-5 text-2xl font-black leading-snug">
         일어나셨으면 아래 버튼을
         <br />
@@ -71,7 +78,9 @@ export function WakeUpCard() {
       </button>
       <p className="relative mt-3 flex items-center gap-1.5 text-sm text-white/90">
         <AlarmClock className="size-4" aria-hidden />
-        {wakeUpDeadline}까지 누르지 않으시면 보호자께 알림이 가요
+        {overdue
+          ? `${wakeUpDeadline}이 지나 보호자께 ${alerted ? '알렸어요' : '알림이 가요'}. 지금 누르시면 보호자 화면에 바로 보여요.`
+          : `${wakeUpDeadline}까지 누르지 않으시면 보호자께 알림이 가요`}
       </p>
     </div>
   )
@@ -264,22 +273,54 @@ const SYNC_TEXT: Record<SyncStatus, string> = {
   error: '서버 저장 실패 · 인터넷 연결을 확인해 주세요',
 }
 
-/** 보호자가 /guardian 에서 입력할 가족 코드와 서버 저장 상태 */
+/** 보호자 연결: 링크 보내기 버튼, 가족 코드, 서버 저장 상태 */
 export function FamilyCodeCard() {
   const code = useCareStore((s) => s.familyCode)
+  const elderName = useUserStore((s) => s.profile.name)
   const status = useSyncStatus((s) => s.status)
   const online = status === 'ok' || status === 'syncing'
+  const [shareNote, setShareNote] = useState<{ tone: 'success' | 'info'; text: string } | null>(null)
+
+  // 보호자가 누르기만 하면 코드 입력 없이 바로 연결되는 링크
+  const link = `${window.location.origin}/guardian?code=${code}`
+
+  const share = async () => {
+    const text = `${elderName} 님의 늘봄 안부 확인 링크예요. 누르면 오늘 기상·복약 상태를 바로 볼 수 있어요.`
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: '늘봄 보호자 연결', text, url: link })
+        setShareNote({ tone: 'success', text: '보호자 연결 링크를 보냈어요.' })
+        return
+      } catch (e) {
+        if ((e as Error).name === 'AbortError') return // 공유 창을 닫음
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(`${text}\n${link}`)
+      setShareNote({ tone: 'success', text: '링크를 복사했어요. 카카오톡이나 문자에 붙여 넣어 보내 주세요.' })
+    } catch {
+      setShareNote({ tone: 'info', text: `이 주소를 보호자께 보내 주세요: ${link}` })
+    }
+  }
+
   return (
     <div className="mt-3 rounded-2xl bg-brand-50/90 p-4 ring-1 ring-brand-100">
-      <p className="text-base font-bold">보호자 연결 코드</p>
+      <p className="text-base font-bold">보호자 연결</p>
+      <p className="mb-3 text-sm text-ink-soft">링크를 보내 드리면 보호자는 누르기만 해도 바로 연결돼요.</p>
+      <BigButton fullWidth size="lg" icon={<Share2 />} onClick={share}>
+        보호자에게 링크 보내기
+      </BigButton>
+      {shareNote && (
+        <StatusNote tone={shareNote.tone} className="mt-2" onClose={() => setShareNote(null)}>
+          {shareNote.text}
+        </StatusNote>
+      )}
+      <p className="mt-4 text-sm text-ink-soft">또는 보호자 화면에 이 코드를 입력해도 돼요</p>
       <p
-        className="mt-1 font-mono text-3xl font-black tracking-[0.2em] text-brand-800"
+        className="font-mono text-3xl font-black tracking-[0.2em] text-brand-800"
         aria-label={`가족 코드 ${code.split('').join(' ')}`}
       >
         {code}
-      </p>
-      <p className="mt-1 text-sm text-ink-soft">
-        보호자는 늘봄 주소 뒤에 <b>/guardian</b> 을 붙여 들어가 이 코드를 입력하면 돼요.
       </p>
       <p
         className={`mt-2 flex items-center gap-1.5 text-sm font-bold ${
