@@ -1,8 +1,9 @@
-import { Briefcase, HeartPulse, Landmark, MapPin, ShieldCheck } from 'lucide-react'
-import { useState } from 'react'
+import { Briefcase, HeartPulse, Landmark, MapPin, ShieldCheck, UserRound } from 'lucide-react'
+import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { getOAuthUrl } from '@/features/auth/api/oauth'
-import { BigButton } from '@/shared/ui'
+import { BigButton, StatusNote, TextField } from '@/shared/ui'
+import { useAccountAuth } from '@/features/auth/hooks/useAccountAuth'
+import { DEMO_ACCOUNTS, findAccount, homePathOf } from '@/features/auth/lib/demoAccounts'
 import { useUserStore, type SocialProvider } from '@/features/auth/store/useUserStore'
 
 const FEATURES = [
@@ -13,26 +14,34 @@ const FEATURES = [
 ]
 
 export function LoginPage() {
-  const { isLoggedIn, login } = useUserStore()
+  const { isLoggedIn, role, login } = useUserStore()
+  const { signIn } = useAccountAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [pending, setPending] = useState<SocialProvider | null>(null)
+  const [id, setId] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
   const from = (location.state as { from?: string } | null)?.from ?? '/'
 
-  if (isLoggedIn) return <Navigate to={from} replace />
+  if (isLoggedIn) return <Navigate to={role && role !== 'elder' ? homePathOf(role) : from} replace />
 
-  const handle = (provider: SocialProvider) => {
-    if (provider !== 'guest') {
-      const url = getOAuthUrl(provider)
-      if (url) {
-        window.location.href = url
-        return
-      }
+  const submit = (e: FormEvent) => {
+    e.preventDefault()
+    const account = findAccount(id, password)
+    if (!account) {
+      setError('아이디나 비밀번호가 맞지 않아요. 아래 시연용 계정을 눌러 보세요.')
+      return
     }
-    // 데모 모드: 실제 OAuth 키가 없을 때 바로 로그인
-    setPending(provider)
+    setError(null)
+    signIn(account, from)
+  }
+
+  // 로그인 없이 둘러보기: 사용자(어르신) 화면을 바로 엽니다.
+  const guest = () => {
+    setPending('guest')
     setTimeout(() => {
-      login(provider)
+      login('guest')
       navigate(from, { replace: true })
     }, 600)
   }
@@ -61,43 +70,62 @@ export function LoginPage() {
           ))}
         </ul>
 
-        <div className="glass space-y-3 rounded-3xl p-5">
-          <p className="mb-1 text-center text-base font-bold text-ink-soft">간편하게 시작하기</p>
-          <button
-            onClick={() => handle('kakao')}
-            disabled={pending !== null}
-            className="flex min-h-16 w-full items-center justify-center gap-3 rounded-2xl bg-[#FEE500] text-lg font-bold text-[#191919] transition active:scale-[0.98] disabled:opacity-60"
-          >
-            {pending === 'kakao' ? (
-              <span className="size-5 animate-spin rounded-full border-[3px] border-current border-t-transparent" />
-            ) : (
-              <svg viewBox="0 0 24 24" className="size-6" aria-hidden>
-                <path
-                  fill="#191919"
-                  d="M12 3C6.48 3 2 6.58 2 11c0 2.85 1.86 5.35 4.66 6.77l-.95 3.48c-.08.3.26.54.52.37l4.13-2.73c.54.07 1.08.11 1.64.11 5.52 0 10-3.58 10-8S17.52 3 12 3Z"
-                />
-              </svg>
-            )}
-            카카오로 시작하기
-          </button>
-          <button
-            onClick={() => handle('naver')}
-            disabled={pending !== null}
-            className="flex min-h-16 w-full items-center justify-center gap-3 rounded-2xl bg-[#03C75A] text-lg font-bold text-white transition active:scale-[0.98] disabled:opacity-60"
-          >
-            {pending === 'naver' ? (
-              <span className="size-5 animate-spin rounded-full border-[3px] border-current border-t-transparent" />
-            ) : (
-              <svg viewBox="0 0 24 24" className="size-5" aria-hidden>
-                <path fill="#fff" d="M16.27 12.84 7.46 0H0v24h7.73V11.16L16.54 24H24V0h-7.73z" />
-              </svg>
-            )}
-            네이버로 시작하기
-          </button>
+        <form onSubmit={submit} className="glass space-y-4 rounded-3xl p-5">
+          <p className="text-center text-base font-bold text-ink-soft">로그인</p>
+          <TextField
+            label="아이디"
+            value={id}
+            onChange={(e) => setId(e.target.value)}
+            autoComplete="username"
+            autoCapitalize="none"
+            placeholder="예: senior"
+          />
+          <TextField
+            label="비밀번호"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+          />
+          {error && <StatusNote tone="warn">{error}</StatusNote>}
+          <BigButton type="submit" size="xl" fullWidth icon={<UserRound />}>
+            로그인
+          </BigButton>
+
+          <fieldset className="rounded-2xl bg-brand-50/80 p-3 ring-1 ring-brand-100">
+            <legend className="px-2 text-sm font-bold text-brand-800">시연용 계정 (눌러서 채우기)</legend>
+            <ul className="space-y-2">
+              {DEMO_ACCOUNTS.map((a) => (
+                <li key={a.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setId(a.id)
+                      setPassword(a.password)
+                      setError(null)
+                    }}
+                    className="flex min-h-14 w-full flex-col items-start gap-1 rounded-xl bg-white/90 px-4 py-3 text-left ring-1 ring-brand-100 transition active:scale-[0.98]"
+                  >
+                    <span>
+                      <span className="block text-base font-bold">{a.label}</span>
+                      <span className="block text-sm text-ink-soft">{a.desc}</span>
+                    </span>
+                    <span className="font-mono text-sm font-bold text-brand-700">
+                      {a.id} / {a.password}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 px-1 text-xs text-ink-soft">
+              시연용이라 아이디와 비밀번호가 화면에 보여요. 실제 서비스에서는 바뀝니다.
+            </p>
+          </fieldset>
+
           <BigButton
             variant="ghost"
             fullWidth
-            onClick={() => handle('guest')}
+            onClick={guest}
             disabled={pending !== null}
             loading={pending === 'guest'}
           >
@@ -109,7 +137,7 @@ export function LoginPage() {
           >
             보호자이신가요? 보호자 화면으로
           </Link>
-        </div>
+        </form>
 
         <p className="mt-5 flex items-center justify-center gap-1.5 text-center text-sm text-ink-soft">
           <ShieldCheck className="size-4 text-brand-500" aria-hidden />
