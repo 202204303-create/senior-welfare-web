@@ -82,3 +82,15 @@ export function requestGuardianPush(code: string, alertId: string) {
     body: JSON.stringify({ code, alertId }),
   }).catch(() => {})
 }
+
+/**
+ * 어르신이 '일어났어요'·'먹었어요'를 누른 직후, 보호자 기기로 알려 달라고 서버(/api/notify-checkin)에 요청합니다.
+ * 서버가 저장된 기록을 확인하고 같은 날 같은 항목은 한 번만 보냅니다. 실패해도 화면 동작에는 영향이 없습니다.
+ */
+export function requestCheckinPush(code: string, dateKey: string, kind: 'wake' | 'med', medId?: string) {
+  fetch('/api/notify-checkin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, dateKey, kind, medId }),
+  }).catch(() => {})
+}

@@ -26,7 +26,10 @@ export async function pushToFamily(
   msg: PushMessage,
 ): Promise<number> {
   const snap = await db.collection('families').doc(code).collection('pushTokens').where('role', '==', role).get()
-  if (snap.empty) return 0
+  if (snap.empty) {
+    console.log(JSON.stringify({ push: 'no-devices', code, role }))
+    return 0
+  }
   const tokens = snap.docs.map((d) => d.get('token') as string)
   const res = await messaging.sendEachForMulticast({
     tokens,
@@ -34,6 +37,17 @@ export async function pushToFamily(
     data: { title: msg.title, body: msg.body, url: msg.url, tag: msg.tag },
     webpush: { headers: { Urgency: 'high', TTL: String(24 * 60 * 60) } },
   })
+  // 진단용 기록: 몇 대에 보냈고 실패 이유가 무엇인지 (기기 토큰은 남기지 않습니다)
+  console.log(
+    JSON.stringify({
+      push: 'sent',
+      code,
+      role,
+      devices: tokens.length,
+      success: res.successCount,
+      errors: res.responses.flatMap((r) => (r.success ? [] : [r.error?.code ?? 'unknown'])),
+    }),
+  )
   await Promise.all(
     res.responses.map((r, i) =>
       !r.success && r.error && DEAD_TOKEN.has(r.error.code) ? snap.docs[i].ref.delete() : null,
