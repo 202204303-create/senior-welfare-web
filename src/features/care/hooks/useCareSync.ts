@@ -10,6 +10,7 @@ import {
 } from '@/features/care/api/family'
 import { announce } from '@/features/care/hooks/useCareReminder'
 import { addNotice } from '@/shared/store/useNoticeStore'
+import { requestGuardianPush } from '@/shared/api/push'
 import { todayKey, useCareStore, type DayRecord } from '@/features/care/store/useCareStore'
 import { useUserStore } from '@/features/auth/store/useUserStore'
 
@@ -22,6 +23,8 @@ export const useSyncStatus = create<{ status: SyncStatus; set: (s: SyncStatus) =
 }))
 
 const RECENT_DAYS = 7
+/** 이 시간 안에 생긴 알림만 보호자 휴대폰으로 보냅니다 */
+const PUSH_RECENT_MS = 30 * 60 * 1000
 const HEARTBEAT_MS = 5 * 60 * 1000 // 5분마다 '앱 사용 중'을 알림
 
 function track(p: Promise<unknown>) {
@@ -78,7 +81,16 @@ export function useCareSync() {
     if (!active) return
     const fresh = alerts.filter((a) => !sentIds.current.has(a.id))
     fresh.forEach((a) => sentIds.current.add(a.id))
-    if (fresh.length) track(Promise.all(fresh.map((a) => saveAlert(familyCode, a))))
+    if (!fresh.length) return
+    track(
+      Promise.all(
+        fresh.map(async (a) => {
+          await saveAlert(familyCode, a)
+          // 방금 생긴 알림만 보호자 기기로 보내 달라고 서버에 요청합니다. (예전 알림을 다시 보내지 않도록)
+          if (Date.now() - new Date(a.at).getTime() < PUSH_RECENT_MS) requestGuardianPush(familyCode, a.id)
+        }),
+      ),
+    )
   }, [active, familyCode, alerts])
 
   // 마지막 활동 시각: 앱을 열 때, 다시 화면에 돌아올 때, 5분마다 올립니다.
@@ -105,6 +117,10 @@ export function useCareSync() {
         const local = new Map(useCareStore.getState().alerts.map((a) => [a.id, a]))
         const newlyAcked = list.filter((a) => a.ackAt && local.has(a.id) && !local.get(a.id)!.ackAt)
         useCareStore.getState().applyAcks(list)
+        // 앱이 닫혀 있는 동안 서버가 만든 알림(srv-…)을 내 기록에 합치고, 같은 알림을 다시 보내지 않게 합니다.
+        const serverAlerts = list.filter((a) => a.id.startsWith('srv-'))
+        serverAlerts.forEach((a) => sentIds.current.add(a.id)) // 서버에 이미 있으므로 다시 올리지 않음
+        useCareStore.getState().mergeServerAlerts(serverAlerts)
         if (newlyAcked.length) {
           const who = newlyAcked[0].ackBy ?? '보호자'
           const sos = newlyAcked.some((a) => a.kind === 'sos')

@@ -52,6 +52,7 @@ interface CareState {
   setGuardianLinkSent: () => void
   dismissGuide: () => void
   applyAcks: (acks: Pick<AlertLog, 'id' | 'ackAt' | 'ackBy'>[]) => void
+  mergeServerAlerts: (list: AlertLog[]) => void
 }
 
 export const todayKey = (d = new Date()) => {
@@ -171,6 +172,18 @@ export const useCareStore = create<CareState>()(
         set((s) => ({ remindedKeys: [...s.remindedKeys, key].slice(-100) }))
         return true
       },
+
+      mergeServerAlerts: (list) =>
+        set((s) => {
+          const have = new Set(s.alerts.map((a) => a.id))
+          const fresh = list.filter((a) => !have.has(a.id))
+          if (!fresh.length) return {}
+          const keys = fresh.map((a) => a.key).filter((k): k is string => !!k)
+          return {
+            alerts: [...fresh, ...s.alerts].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 50),
+            sentAlertKeys: [...new Set([...s.sentAlertKeys, ...keys])].slice(-200),
+          }
+        }),
 
       // 서버에서 받은 보호자 확인(ackAt)을 내 알림 기록에 반영합니다.
       applyAcks: (acks) =>
