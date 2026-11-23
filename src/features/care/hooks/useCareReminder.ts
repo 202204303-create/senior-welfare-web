@@ -10,7 +10,7 @@ export const WAKE_REMIND_BEFORE_MIN = 30
 
 /**
  * 어르신 본인에게 드리는 안내입니다. (보호자 알림과는 별개)
- * - 약 드실 시각이 되면: 화면 안내 + 음성 + 휴대폰 알림
+ * - 약 드실 시각이 되면: 휴대폰 알림 + 음성 (화면에는 안내 배너가 계속 떠 있음)
  * - 기상 확인 마감 30분 전까지 '일어났어요'를 누르지 않으셨으면: 같은 방식으로 안내
  * 같은 안내는 하루에 한 번만 드립니다.
  */
@@ -48,14 +48,15 @@ export function useCareReminder() {
       }
     }
 
-    if (messages.length) remind(messages.join(' '))
+    if (messages.length) announce(messages.join(' '))
   }, [now, records, medications, wakeUpDeadline, medGraceMinutes, isLoggedIn, markReminded])
 }
 
-/** 화면 안내, 휴대폰 알림, 음성 안내(설정이 켜져 있을 때)를 함께 드립니다. */
-export function remind(text: string, tone: 'info' | 'success' = 'info') {
-  const { showToast, voiceGuide } = useSettingsStore.getState()
-  showToast(text, tone)
+/**
+ * 휴대폰 알림(PWA)과 음성 안내(설정이 켜져 있을 때)로 알려 드립니다.
+ * 몇 초 뒤 사라지는 토스트는 쓰지 않고, 화면에는 안내 배너·상태 표시가 계속 남습니다.
+ */
+export function announce(text: string) {
   showSystemNotification('늘봄', text)
-  if (voiceGuide) speak(text)
+  if (useSettingsStore.getState().voiceGuide) speak(text)
 }

@@ -8,7 +8,8 @@ import {
   saveHeartbeat,
   watchAlerts,
 } from '@/features/care/api/family'
-import { remind } from '@/features/care/hooks/useCareReminder'
+import { announce } from '@/features/care/hooks/useCareReminder'
+import { addNotice } from '@/shared/store/useNoticeStore'
 import { todayKey, useCareStore, type DayRecord } from '@/features/care/store/useCareStore'
 import { useUserStore } from '@/features/auth/store/useUserStore'
 
@@ -107,10 +108,11 @@ export function useCareSync() {
         if (newlyAcked.length) {
           const who = newlyAcked[0].ackBy ?? '보호자'
           const sos = newlyAcked.some((a) => a.kind === 'sos')
-          remind(
-            sos ? `${who}님이 긴급 요청을 확인했어요. 곧 연락드릴 거예요.` : `${who}님이 알림을 확인했어요.`,
-            'success',
-          )
+          const text = sos
+            ? `${who}님이 긴급 요청을 확인했어요. 곧 연락드릴 거예요.`
+            : `${who}님이 알림을 확인했어요.`
+          addNotice({ message: text, tone: 'success', key: `ack-${newlyAcked[0].id}` })
+          announce(text)
         }
       },
       (e) => console.warn('[늘봄] 확인 응답 받기 실패', e),
