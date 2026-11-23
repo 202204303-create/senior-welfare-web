@@ -26,6 +26,7 @@ const fmtTime = (iso: string) =>
 export function WakeUpCard() {
   const { records, checkWakeUp, wakeUpDeadline } = useCareStore()
   const showToast = useSettingsStore((s) => s.showToast)
+  const sync = useSyncStatus((s) => s.status)
   const wakeUpAt = records[todayKey()]?.wakeUpAt
 
   if (wakeUpAt) {
@@ -36,7 +37,16 @@ export function WakeUpCard() {
         </div>
         <div>
           <p className="text-xl font-extrabold">오늘 안부 확인 완료!</p>
-          <p className="text-base text-ink-soft">{fmtTime(wakeUpAt)}에 확인했어요. 보호자께 전달됐어요.</p>
+          <p className="text-base text-ink-soft">
+            {fmtTime(wakeUpAt)}에 확인했어요.{' '}
+            {sync === 'ok'
+              ? '보호자 화면에 바로 보여요.'
+              : sync === 'error'
+                ? '인터넷이 연결되면 보호자께 전달돼요.'
+                : sync === 'off'
+                  ? '이 기기에 기록했어요.'
+                  : '보호자께 전달하는 중이에요.'}
+          </p>
         </div>
       </div>
     )
@@ -74,6 +84,9 @@ export function MedChecklist({ compact = false }: { compact?: boolean }) {
   const { medications, records, toggleMed, medGraceMinutes } = useCareStore()
   const showToast = useSettingsStore((s) => s.showToast)
   const taken = records[todayKey()]?.takenMeds ?? {}
+  // 실수로 눌러 복용 기록이 지워지지 않도록, 취소할 때는 한 번 더 묻습니다.
+  const [undoId, setUndoId] = useState<string | null>(null)
+  const undoMed = medications.find((m) => m.id === undoId)
 
   const list = compact ? medications.filter((m) => !taken[m.id]).slice(0, 2) : medications
 
@@ -86,59 +99,87 @@ export function MedChecklist({ compact = false }: { compact?: boolean }) {
   }
 
   return (
-    <ul className="space-y-3">
-      {list.map((med) => {
-        const status = getMedStatus(med, taken[med.id], now, medGraceMinutes)
-        const s = STATUS_STYLE[status]
-        const isTaken = status === 'taken'
-        return (
-          <li key={med.id}>
-            <button
-              onClick={() => {
-                toggleMed(med.id)
-                if (!isTaken) showToast(`${med.name} 복용을 기록했어요.`, 'success')
-              }}
-              aria-pressed={isTaken}
-              className={`flex w-full items-center gap-4 rounded-2xl p-4 text-left ring-2 transition active:scale-[0.99] ${
-                isTaken
-                  ? 'bg-emerald-50/80 ring-emerald-200'
-                  : status === 'due'
-                    ? 'bg-white ring-brand-400 shadow-glass'
-                    : status === 'missed'
-                      ? 'bg-rose-50/80 ring-rose-200'
-                      : 'bg-white/70 ring-brand-100'
-              }`}
-            >
-              <span
-                className={`grid size-14 shrink-0 place-items-center rounded-2xl border-[3px] transition ${
+    <>
+      <ul className="space-y-3">
+        {list.map((med) => {
+          const status = getMedStatus(med, taken[med.id], now, medGraceMinutes)
+          const s = STATUS_STYLE[status]
+          const isTaken = status === 'taken'
+          return (
+            <li key={med.id}>
+              <button
+                onClick={() => {
+                  if (isTaken) return setUndoId(med.id)
+                  toggleMed(med.id)
+                  showToast(`${med.name} 복용을 기록했어요.`, 'success')
+                }}
+                aria-pressed={isTaken}
+                className={`flex w-full items-center gap-4 rounded-2xl p-4 text-left ring-2 transition active:scale-[0.99] ${
                   isTaken
-                    ? 'border-emerald-500 bg-emerald-500 text-white'
-                    : 'border-brand-300 bg-white text-brand-300'
+                    ? 'bg-emerald-50/80 ring-emerald-200'
+                    : status === 'due'
+                      ? 'bg-white ring-brand-400 shadow-glass'
+                      : status === 'missed'
+                        ? 'bg-rose-50/80 ring-rose-200'
+                        : 'bg-white/70 ring-brand-100'
                 }`}
-                aria-hidden
               >
-                {isTaken ? <Check className="size-8" strokeWidth={3} /> : <Pill className="size-7" />}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="flex flex-wrap items-center gap-2">
-                  <span className="text-lg font-extrabold">{med.slot}</span>
-                  <span className={`rounded-full px-2.5 py-0.5 text-sm font-bold ${s.cls}`}>{s.label}</span>
+                <span
+                  className={`grid size-14 shrink-0 place-items-center rounded-2xl border-[3px] transition ${
+                    isTaken
+                      ? 'border-emerald-500 bg-emerald-500 text-white'
+                      : 'border-brand-300 bg-white text-brand-300'
+                  }`}
+                  aria-hidden
+                >
+                  {isTaken ? <Check className="size-8" strokeWidth={3} /> : <Pill className="size-7" />}
                 </span>
-                <span className={`block text-lg ${isTaken ? 'text-ink-soft line-through' : 'text-ink'}`}>
-                  {med.name}
+                <span className="min-w-0 flex-1">
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="text-lg font-extrabold">{med.slot}</span>
+                    <span className={`rounded-full px-2.5 py-0.5 text-sm font-bold ${s.cls}`}>{s.label}</span>
+                  </span>
+                  <span className={`block text-lg ${isTaken ? 'text-ink-soft line-through' : 'text-ink'}`}>
+                    {med.name}
+                  </span>
+                  <span className="flex items-center gap-1 text-sm text-ink-soft">
+                    <Clock className="size-4" aria-hidden />
+                    {med.time}
+                    {med.memo && ` · ${med.memo}`}
+                    {isTaken && ` · ${fmtTime(taken[med.id])} 복용`}
+                  </span>
                 </span>
-                <span className="flex items-center gap-1 text-sm text-ink-soft">
-                  <Clock className="size-4" aria-hidden />
-                  {med.time}
-                  {med.memo && ` · ${med.memo}`}
-                  {isTaken && ` · ${fmtTime(taken[med.id])} 복용`}
-                </span>
-              </span>
-            </button>
-          </li>
-        )
-      })}
-    </ul>
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+      <Modal open={!!undoMed} onClose={() => setUndoId(null)} title="복용 기록을 취소할까요?">
+        <p className="mb-6 text-lg text-ink-soft">
+          <b className="text-ink">{undoMed?.name}</b>을(를) 드신 기록을 지워요. 아직 안 드셨을 때만 취소해
+          주세요.
+        </p>
+        <div className="space-y-3">
+          <BigButton fullWidth size="lg" onClick={() => setUndoId(null)}>
+            아니요, 그대로 둘게요
+          </BigButton>
+          <BigButton
+            fullWidth
+            size="lg"
+            variant="ghost"
+            onClick={() => {
+              if (undoMed) {
+                toggleMed(undoMed.id)
+                showToast(`${undoMed.name} 복용 기록을 취소했어요.`, 'info')
+              }
+              setUndoId(null)
+            }}
+          >
+            네, 기록 취소
+          </BigButton>
+        </div>
+      </Modal>
+    </>
   )
 }
 
@@ -305,8 +346,13 @@ export function MedReminderBanner() {
   const [later, setLater] = useState<string[]>([])
   const taken = records[todayKey(now)]?.takenMeds ?? {}
   const nowMin = now.getHours() * 60 + now.getMinutes()
+  const { medGraceMinutes } = useCareStore()
   const pending = medications.filter(
-    (m) => !taken[m.id] && nowMin >= timeToMinutes(m.time) && !later.includes(m.id),
+    (m) =>
+      !taken[m.id] &&
+      nowMin >= timeToMinutes(m.time) &&
+      !later.includes(m.id) &&
+      getMedStatus(m, undefined, now, medGraceMinutes) !== 'later',
   )
   if (pending.length === 0) return null
 
@@ -316,7 +362,10 @@ export function MedReminderBanner() {
       aria-label="지금 드실 약"
     >
       <p className="mb-3 flex items-center gap-2 text-xl font-black text-brand-800">
-        <BellRing className="size-6" aria-hidden /> 약 드실 시간이에요
+        <BellRing className="size-6" aria-hidden />
+        {pending.some((m) => getMedStatus(m, undefined, now, medGraceMinutes) === 'missed')
+          ? '아직 안 드신 약이 있어요'
+          : '약 드실 시간이에요'}
       </p>
       <ul className="space-y-3">
         {pending.map((m) => (
