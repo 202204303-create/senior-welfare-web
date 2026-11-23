@@ -46,6 +46,7 @@ export function CarePage() {
   const setVoiceGuide = useSettingsStore((s) => s.setVoiceGuide)
   const [addOpen, setAddOpen] = useState(false)
   const [manage, setManage] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
   const [editId, setEditId] = useState<string | null>(null) // null 이면 새 약 추가
   const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -172,74 +173,97 @@ export function CarePage() {
             <FamilyCodeCard />
           </InfoCard>
 
-          <InfoCard title="알림 설정" icon={<Settings2 />}>
-            <TextField
-              label="기상 확인 마감 시간"
-              type="time"
-              value={care.wakeUpDeadline}
-              onChange={(e) => care.setWakeUpDeadline(e.target.value)}
-              hint="이 시간까지 '일어났어요'를 누르지 않으면 알림이 가요."
-            />
-            <p className="mb-2 mt-5 text-base font-bold">알림 보낼 방법</p>
-            <div className="grid grid-cols-3 gap-2">
-              {(Object.keys(CHANNEL_LABEL) as AlertChannel[]).map((c) => {
-                const Icon = CHANNEL_ICON[c]
-                const ready = READY_CHANNELS.includes(c)
-                const on = ready && care.channels.includes(c)
-                return (
-                  <button
-                    key={c}
-                    onClick={() => ready && care.toggleChannel(c)}
-                    aria-pressed={on}
-                    disabled={!ready}
-                    className={`flex min-h-20 flex-col items-center justify-center gap-1 rounded-2xl text-sm font-bold ring-2 transition ${
-                      on
-                        ? 'bg-brand-600 text-white ring-brand-600'
-                        : ready
-                          ? 'bg-white/80 text-ink-soft ring-brand-100'
-                          : 'cursor-not-allowed bg-slate-50 text-slate-400 ring-slate-100'
-                    }`}
-                  >
-                    <Icon className="size-6" aria-hidden />
-                    {CHANNEL_LABEL[c]}
-                    {!ready && <span className="text-xs font-semibold">준비 중</span>}
-                  </button>
-                )
-              })}
-            </div>
-            <p className="mt-2 text-sm text-ink-soft">
-              카카오톡·문자 발송은 준비 중이에요. 지금은 휴대폰 알림으로 알려 드려요.
-            </p>
-            <PushPermission
-              onGranted={() => {
-                if (!care.channels.includes('webpush')) care.toggleChannel('webpush')
-              }}
-            />
-            <button
-              onClick={() => {
-                const next = !voiceGuide
-                setVoiceGuide(next)
-                if (next) speak('약 드실 시간이 되면 이렇게 소리로 알려 드릴게요.')
-              }}
-              aria-pressed={voiceGuide}
-              className={`mt-3 flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl px-4 text-left text-base font-bold ring-2 transition ${
-                voiceGuide
-                  ? 'bg-brand-50 text-brand-800 ring-brand-300'
-                  : 'bg-white/80 text-ink-soft ring-brand-100'
-              }`}
-            >
-              <span className="flex items-center gap-2">
-                {voiceGuide ? (
-                  <Volume2 className="size-6" aria-hidden />
-                ) : (
-                  <VolumeX className="size-6" aria-hidden />
-                )}
-                약·기상 시간 음성 안내
-              </span>
-              <span className="shrink-0 whitespace-nowrap rounded-full bg-white px-3 py-1 text-sm">
-                {voiceGuide ? '켜짐' : '꺼짐'}
-              </span>
-            </button>
+          <InfoCard
+            title="알림 설정"
+            icon={<Settings2 />}
+            subtitle="기상 마감 시간, 휴대폰 알림, 음성 안내"
+            action={
+              <BigButton
+                size="md"
+                variant="soft"
+                onClick={() => setSettingsOpen((v) => !v)}
+                aria-expanded={settingsOpen}
+              >
+                {settingsOpen ? '접기' : '열기'}
+              </BigButton>
+            }
+          >
+            {/* 매일 쓰지 않는 설정이라 기본으로 접어 둡니다. */}
+            {settingsOpen ? (
+              <>
+                <TextField
+                  label="기상 확인 마감 시간"
+                  type="time"
+                  value={care.wakeUpDeadline}
+                  onChange={(e) => care.setWakeUpDeadline(e.target.value)}
+                  hint="이 시간까지 '일어났어요'를 누르지 않으면 알림이 가요."
+                />
+                <p className="mb-2 mt-5 text-base font-bold">알림 보낼 방법</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {(Object.keys(CHANNEL_LABEL) as AlertChannel[]).map((c) => {
+                    const Icon = CHANNEL_ICON[c]
+                    const ready = READY_CHANNELS.includes(c)
+                    const on = ready && care.channels.includes(c)
+                    return (
+                      <button
+                        key={c}
+                        onClick={() => ready && care.toggleChannel(c)}
+                        aria-pressed={on}
+                        disabled={!ready}
+                        className={`flex min-h-20 flex-col items-center justify-center gap-1 rounded-2xl text-sm font-bold ring-2 transition ${
+                          on
+                            ? 'bg-brand-600 text-white ring-brand-600'
+                            : ready
+                              ? 'bg-white/80 text-ink-soft ring-brand-100'
+                              : 'cursor-not-allowed bg-slate-50 text-slate-400 ring-slate-100'
+                        }`}
+                      >
+                        <Icon className="size-6" aria-hidden />
+                        {CHANNEL_LABEL[c]}
+                        {!ready && <span className="text-xs font-semibold">준비 중</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+                <p className="mt-2 text-sm text-ink-soft">
+                  카카오톡·문자 발송은 준비 중이에요. 지금은 휴대폰 알림으로 알려 드려요.
+                </p>
+                <PushPermission
+                  onGranted={() => {
+                    if (!care.channels.includes('webpush')) care.toggleChannel('webpush')
+                  }}
+                />
+                <button
+                  onClick={() => {
+                    const next = !voiceGuide
+                    setVoiceGuide(next)
+                    if (next) speak('약 드실 시간이 되면 이렇게 소리로 알려 드릴게요.')
+                  }}
+                  aria-pressed={voiceGuide}
+                  className={`mt-3 flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl px-4 text-left text-base font-bold ring-2 transition ${
+                    voiceGuide
+                      ? 'bg-brand-50 text-brand-800 ring-brand-300'
+                      : 'bg-white/80 text-ink-soft ring-brand-100'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    {voiceGuide ? (
+                      <Volume2 className="size-6" aria-hidden />
+                    ) : (
+                      <VolumeX className="size-6" aria-hidden />
+                    )}
+                    약·기상 시간 음성 안내
+                  </span>
+                  <span className="shrink-0 whitespace-nowrap rounded-full bg-white px-3 py-1 text-sm">
+                    {voiceGuide ? '켜짐' : '꺼짐'}
+                  </span>
+                </button>
+              </>
+            ) : (
+              <p className="text-base text-ink-soft">
+                기상 확인 마감 {care.wakeUpDeadline} · 음성 안내 {voiceGuide ? '켜짐' : '꺼짐'}
+              </p>
+            )}
           </InfoCard>
 
           <InfoCard

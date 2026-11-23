@@ -36,6 +36,8 @@ interface CareState {
   sentAlertKeys: string[] // 중복 발송 방지 키
   familyCode: string // 보호자가 /guardian 에서 입력하는 가족 코드
   remindedKeys: string[] // 어르신에게 이미 알려 드린 복약·기상 안내 (중복 방지)
+  guardianLinkSent: boolean // 보호자에게 연결 링크를 보낸 적이 있는지 (처음 사용 안내용)
+  guideDismissed: boolean // 처음 사용 안내를 닫았는지
 
   checkWakeUp: () => void
   toggleMed: (medId: string) => void
@@ -47,6 +49,8 @@ interface CareState {
   pushAlert: (key: string, alert: Omit<AlertLog, 'id' | 'at'>) => boolean
   clearAlerts: () => void
   markReminded: (key: string) => boolean
+  setGuardianLinkSent: () => void
+  dismissGuide: () => void
   applyAcks: (acks: Pick<AlertLog, 'id' | 'ackAt' | 'ackBy'>[]) => void
 }
 
@@ -93,6 +97,10 @@ export const useCareStore = create<CareState>()(
       sentAlertKeys: [],
       familyCode: makeFamilyCode(),
       remindedKeys: [],
+      guardianLinkSent: false,
+      guideDismissed: false,
+      setGuardianLinkSent: () => set({ guardianLinkSent: true }),
+      dismissGuide: () => set({ guideDismissed: true }),
 
       checkWakeUp: () =>
         set((s) => {
