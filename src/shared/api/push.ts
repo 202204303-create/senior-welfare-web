@@ -6,7 +6,8 @@ import { ensureSignedIn, getDb, getFirebaseApp } from '@/shared/api/firebase'
  * 웹 푸시 인증서 공개 키 (Firebase 콘솔 → 프로젝트 설정 → 클라우드 메시징 → 웹 구성 → 키 쌍).
  * 공개 키라 코드에 넣어도 됩니다. 비어 있으면 '앱이 열려 있을 때만' 알림이 갑니다.
  */
-const TEAM_VAPID_KEY = ''
+const TEAM_VAPID_KEY =
+  'BFne05rnLA8nuAhAK6JH-ROA7fyxMAQyELQ3UHKYkQllv9yIHHrEBQivbawVp2jFaR0V3W6O7lXAdyUCL-2M-QY'
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || TEAM_VAPID_KEY
 
 export type PushRole = 'guardian' | 'elder'

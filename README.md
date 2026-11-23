@@ -140,7 +140,8 @@
 
 **12/1 동작 결과물까지**
 - [x] 보호자 화면을 꺼 둬도 휴대폰 알림 받기 — 코드 완료 (#19)
-- [ ] 휴대폰 알림 키 설정: 웹 푸시 공개 키, Vercel 환경 변수 `FIREBASE_SERVICE_ACCOUNT`·`CRON_SECRET`, GitHub 비밀값 `CRON_SECRET` — 담당:
+- [x] 웹 푸시 공개 키 코드에 넣기 (#21)
+- [ ] 휴대폰 알림 비밀값 설정: Vercel 환경 변수 `FIREBASE_SERVICE_ACCOUNT`·`CRON_SECRET`, GitHub 비밀값 `CRON_SECRET` — 담당: 202204303-create
 - [x] 어르신 앱이 닫혀 있어도 미확인 감지 — 보호자 화면이 열려 있으면 서버 기록으로 직접 판단 (#8)
 - [x] 보호자 화면까지 모두 꺼져 있을 때 감지 — Vercel 서버 함수 + GitHub Actions 10분마다, 무료 (#19)
 - [ ] Firestore 보안 규칙 강화 (가족 코드 외 보호 장치) — 담당:
