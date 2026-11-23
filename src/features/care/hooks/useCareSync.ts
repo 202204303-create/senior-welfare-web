@@ -10,7 +10,8 @@ import {
 } from '@/features/care/api/family'
 import { announce } from '@/features/care/hooks/useCareReminder'
 import { addNotice } from '@/shared/store/useNoticeStore'
-import { requestGuardianPush } from '@/shared/api/push'
+import { newCheckins } from '@/features/care/lib/checkins'
+import { requestCheckinPush, requestGuardianPush } from '@/shared/api/push'
 import { todayKey, useCareStore, type DayRecord } from '@/features/care/store/useCareStore'
 import { useUserStore } from '@/features/auth/store/useUserStore'
 
@@ -72,7 +73,18 @@ export function useCareSync() {
     const since = todayKey(new Date(Date.now() - RECENT_DAYS * 86_400_000))
     const changed = Object.entries(records).filter(([k, rec]) => k >= since && (!prev || prev[k] !== rec))
     prevRecords.current = records
-    if (changed.length) track(Promise.all(changed.map(([k, rec]) => saveDayRecord(familyCode, k, rec))))
+    if (changed.length) {
+      track(
+        Promise.all(
+          changed.map(async ([k, rec]) => {
+            await saveDayRecord(familyCode, k, rec)
+            // 방금 '일어났어요'·'먹었어요'를 누른 것은 보호자 휴대폰으로 알립니다. (처음 불러올 때와 지난 날짜는 제외)
+            if (!prev || k !== todayKey()) return
+            for (const c of newCheckins(prev[k], rec)) requestCheckinPush(familyCode, k, c.kind, c.medId)
+          }),
+        ),
+      )
+    }
   }, [active, familyCode, records])
 
   // 알림 기록: 아직 올리지 않은 것만 올립니다.

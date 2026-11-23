@@ -5,6 +5,7 @@ import type { Firestore } from 'firebase-admin/firestore'
 import type { Messaging } from 'firebase-admin/messaging'
 import { runCheck } from '../check.ts'
 import { POST, sendAlertPush } from '../notify.ts'
+import { POST as POST_CHECKIN, sendCheckinPush } from '../notify-checkin.ts'
 import { FakeDb, FakeMessaging } from './fakeFirestore.ts'
 
 const CODE = 'ABC234'
@@ -98,4 +99,45 @@ test('/api/notify 는 잘못된 요청을 서버 키 없이도 거절한다', as
   assert.equal((await bad({ code: 'abc', alertId: 'a' })).status, 400)
   assert.equal((await bad({ code: CODE })).status, 400)
   assert.equal((await POST(new Request('http://x', { method: 'POST', body: 'not json' }))).status, 400)
+})
+
+const checkin = (kind: 'wake' | 'med', medId?: string, dateKey = '2026-11-17', now = kst('08:10')) =>
+  sendCheckinPush(db as unknown as Firestore, fcm as unknown as Messaging, CODE, dateKey, kind, medId, now)
+
+test('어르신이 일어났다고 체크하면 보호자에게 한 번만 알린다 (앱이 닫혀 있어도 도착)', async () => {
+  db.store.set(`families/${CODE}/days/2026-11-17`, { wakeUpAt: '2026-11-16T23:05:00Z', takenMeds: {} }) // 08:05 KST
+  const first = await checkin('wake')
+  const again = await checkin('wake')
+  assert.deepEqual(first, { sent: 1, skipped: false })
+  assert.deepEqual(again, { sent: 0, skipped: true, reason: 'already-sent' })
+  assert.equal(fcm.sent.length, 1)
+  assert.equal(fcm.sent[0].token, 'guardian-phone')
+  assert.equal(fcm.sent[0].data.body, '김영수 님이 일어나셨어요. (오전 8:05)')
+  assert.equal(fcm.sent[0].data.url, `/guardian?code=${CODE}`)
+})
+
+test('약을 드셨다고 체크하면 약 이름과 함께 보호자에게 알린다', async () => {
+  db.store.set(`families/${CODE}/days/2026-11-17`, { takenMeds: { 'm-1': '2026-11-16T23:07:00Z' } })
+  const r = await checkin('med', 'm-1')
+  assert.deepEqual(r, { sent: 1, skipped: false })
+  assert.equal(fcm.sent[0].data.body, '김영수 님이 혈압약을(를) 드셨어요. (오전 8:07)')
+  assert.equal(sentTo('elder-phone').length, 0, '어르신 기기로는 보내지 않음')
+})
+
+test('서버에 기록되지 않은 체크, 없는 약, 오래된 날짜는 알리지 않는다', async () => {
+  assert.equal((await checkin('wake')).reason, 'not-recorded')
+  db.store.set(`families/${CODE}/days/2026-11-17`, { takenMeds: { 'm-1': 'x' } })
+  assert.equal((await checkin('med', 'm-9')).reason, 'not-recorded')
+  db.store.set(`families/${CODE}/days/2026-11-10`, { wakeUpAt: 'x', takenMeds: {} })
+  assert.equal((await checkin('wake', undefined, '2026-11-10')).reason, 'old-date')
+  assert.equal(fcm.sent.length, 0)
+})
+
+test('/api/notify-checkin 은 잘못된 요청을 서버 키 없이도 거절한다', async () => {
+  const bad = (body: unknown) =>
+    POST_CHECKIN(new Request('http://x/api/notify-checkin', { method: 'POST', body: JSON.stringify(body) }))
+  assert.equal((await bad({ code: 'abc', dateKey: '2026-11-17', kind: 'wake' })).status, 400)
+  assert.equal((await bad({ code: CODE, dateKey: 'x', kind: 'wake' })).status, 400)
+  assert.equal((await bad({ code: CODE, dateKey: '2026-11-17', kind: 'med' })).status, 400)
+  assert.equal((await bad({ code: CODE, dateKey: '2026-11-17', kind: 'bad' })).status, 400)
 })
