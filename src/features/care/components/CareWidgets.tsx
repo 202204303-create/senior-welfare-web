@@ -16,9 +16,9 @@ import { useState } from 'react'
 import { getMedStatus, useAlertDispatch } from '@/features/care/hooks/useCareWatcher'
 import { useSyncStatus, type SyncStatus } from '@/features/care/hooks/useCareSync'
 import { WAKE_REMIND_BEFORE_MIN } from '@/features/care/hooks/useCareReminder'
+import { useShareGuardianLink } from '@/features/care/hooks/useShareGuardianLink'
 import { STATUS_STYLE } from '@/features/care/lib/status'
 import { useNow } from '@/shared/hooks/useNow'
-import { useUserStore } from '@/features/auth/store/useUserStore'
 import { timeToMinutes, todayKey, useCareStore, type AlertLog } from '@/features/care/store/useCareStore'
 import { BigButton, Modal, StatusNote } from '@/shared/ui'
 
@@ -154,6 +154,15 @@ export function MedChecklist({ compact = false }: { compact?: boolean }) {
                     {isTaken && ` · ${fmtTime(taken[med.id])} 복용`}
                   </span>
                 </span>
+                {/* 누를 수 있다는 것을 알 수 있도록 안 먹은 약에는 '먹었어요' 표시 */}
+                {!isTaken && (
+                  <span
+                    className="shrink-0 rounded-xl bg-brand-600 px-3 py-2 text-base font-bold text-white"
+                    aria-hidden
+                  >
+                    먹었어요
+                  </span>
+                )}
               </button>
             </li>
           )
@@ -276,32 +285,9 @@ const SYNC_TEXT: Record<SyncStatus, string> = {
 /** 보호자 연결: 링크 보내기 버튼, 가족 코드, 서버 저장 상태 */
 export function FamilyCodeCard() {
   const code = useCareStore((s) => s.familyCode)
-  const elderName = useUserStore((s) => s.profile.name)
   const status = useSyncStatus((s) => s.status)
   const online = status === 'ok' || status === 'syncing'
-  const [shareNote, setShareNote] = useState<{ tone: 'success' | 'info'; text: string } | null>(null)
-
-  // 보호자가 누르기만 하면 코드 입력 없이 바로 연결되는 링크
-  const link = `${window.location.origin}/guardian?code=${code}`
-
-  const share = async () => {
-    const text = `${elderName} 님의 늘봄 안부 확인 링크예요. 누르면 오늘 기상·복약 상태를 바로 볼 수 있어요.`
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: '늘봄 보호자 연결', text, url: link })
-        setShareNote({ tone: 'success', text: '보호자 연결 링크를 보냈어요.' })
-        return
-      } catch (e) {
-        if ((e as Error).name === 'AbortError') return // 공유 창을 닫음
-      }
-    }
-    try {
-      await navigator.clipboard.writeText(`${text}\n${link}`)
-      setShareNote({ tone: 'success', text: '링크를 복사했어요. 카카오톡이나 문자에 붙여 넣어 보내 주세요.' })
-    } catch {
-      setShareNote({ tone: 'info', text: `이 주소를 보호자께 보내 주세요: ${link}` })
-    }
-  }
+  const { share, result: shareNote, clearResult } = useShareGuardianLink()
 
   return (
     <div className="mt-3 rounded-2xl bg-brand-50/90 p-4 ring-1 ring-brand-100">
@@ -311,7 +297,7 @@ export function FamilyCodeCard() {
         보호자에게 링크 보내기
       </BigButton>
       {shareNote && (
-        <StatusNote tone={shareNote.tone} className="mt-2" onClose={() => setShareNote(null)}>
+        <StatusNote tone={shareNote.tone} className="mt-2" onClose={clearResult}>
           {shareNote.text}
         </StatusNote>
       )}
@@ -497,6 +483,81 @@ export function CareReminderBanner({ showWake = true }: { showWake?: boolean }) 
           </li>
         ))}
       </ul>
+    </section>
+  )
+}
+
+/**
+ * 처음 사용 안내. 홈 맨 위에서 세 가지만 알려 드리고, 한 단계씩 하면 체크 표시가 붙습니다.
+ * 세 가지를 다 하거나 '다 알았어요'를 누르면 사라집니다.
+ */
+export function StartGuide() {
+  const now = useNow(30_000)
+  const { records, medications, guardianLinkSent, guideDismissed, dismissGuide } = useCareStore()
+  const { share, result, clearResult } = useShareGuardianLink()
+  if (guideDismissed) return null
+
+  const today = records[todayKey(now)]
+  const steps = [
+    {
+      done: !!today?.wakeUpAt,
+      title: "아침에 일어나시면 '일어났어요'를 눌러 주세요",
+      desc: '보호자께 안부가 전해져요.',
+    },
+    {
+      done: medications.some((m) => today?.takenMeds[m.id]),
+      title: "약을 드신 뒤 '먹었어요'를 눌러 주세요",
+      desc: '약 드실 시간이 되면 소리와 알림으로 알려 드려요.',
+    },
+    { done: guardianLinkSent, title: '보호자에게 링크를 보내 연결해 주세요', desc: '한 번만 하시면 돼요.' },
+  ]
+  const allDone = steps.every((st) => st.done)
+
+  return (
+    <section
+      className="rounded-3xl bg-white p-5 shadow-glass-lg ring-2 ring-brand-200"
+      aria-label="늘봄 사용 안내"
+    >
+      <p className="mb-3 text-xl font-black text-brand-800">
+        {allDone ? '이제 늘봄을 잘 쓰고 계세요 👏' : '늘봄은 이렇게 쓰세요'}
+      </p>
+      <ol className="space-y-3">
+        {steps.map((st, i) => (
+          <li key={st.title} className="flex items-start gap-3">
+            <span
+              className={`grid size-9 shrink-0 place-items-center rounded-full text-lg font-black ${
+                st.done ? 'bg-emerald-500 text-white' : 'bg-brand-100 text-brand-700'
+              }`}
+              aria-label={st.done ? '완료' : `${i + 1}단계`}
+            >
+              {st.done ? <Check className="size-5" strokeWidth={3} aria-hidden /> : i + 1}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className={`block text-lg font-bold ${st.done ? 'text-ink-soft line-through' : ''}`}>
+                {st.title}
+              </span>
+              <span className="block text-base text-ink-soft">{st.desc}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+      {!guardianLinkSent && (
+        <BigButton fullWidth size="lg" icon={<Share2 />} className="mt-4" onClick={share}>
+          보호자에게 링크 보내기
+        </BigButton>
+      )}
+      {result && (
+        <StatusNote tone={result.tone} className="mt-2" onClose={clearResult}>
+          {result.text}
+        </StatusNote>
+      )}
+      <button
+        type="button"
+        onClick={dismissGuide}
+        className="mt-3 min-h-12 w-full rounded-xl text-base font-bold text-ink-soft hover:bg-brand-50"
+      >
+        {allDone ? '안내 닫기' : '다 알았어요, 안내 닫기'}
+      </button>
     </section>
   )
 }

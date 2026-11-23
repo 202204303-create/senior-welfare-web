@@ -2,7 +2,13 @@ import { Briefcase, ChevronRight, HeartPulse, Landmark, MapPin, Pill, Sparkles }
 import { Link } from 'react-router-dom'
 import { useJobsQuery } from '@/features/jobs/api/queries'
 import { usePoliciesQuery } from '@/features/policies/api/queries'
-import { MedChecklist, MedProgress, SOSButton, WakeUpCard } from '@/features/care/components/CareWidgets'
+import {
+  MedChecklist,
+  MedProgress,
+  SOSButton,
+  StartGuide,
+  WakeUpCard,
+} from '@/features/care/components/CareWidgets'
 import { InfoCard, Skeleton } from '@/shared/ui'
 import { dDayLabel, isJobEligible } from '@/features/jobs/lib/jobs'
 import { isPolicyEligible } from '@/features/policies/lib/eligibility'
@@ -57,6 +63,8 @@ export function DashboardPage() {
         </h1>
       </div>
 
+      <StartGuide />
+
       <div className="grid gap-5 lg:grid-cols-[1.1fr_1fr]">
         <div className="space-y-5">
           <WakeUpCard />
@@ -78,6 +86,9 @@ export function DashboardPage() {
             </div>
             <MedChecklist compact />
           </InfoCard>
+
+          {/* 긴급 버튼은 핵심 기능이므로 일자리·지도 메뉴보다 위에 둡니다. */}
+          <SOSButton />
         </div>
 
         <div className="space-y-5">
@@ -122,8 +133,6 @@ export function DashboardPage() {
             </span>
             <ChevronRight className="size-7 shrink-0 text-brand-400" aria-hidden />
           </Link>
-
-          <SOSButton />
         </div>
       </div>
 
