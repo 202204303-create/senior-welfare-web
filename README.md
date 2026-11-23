@@ -40,7 +40,7 @@ React + Vite + TypeScript + Tailwind CSS v4 + Zustand + React Query 기반 반�
 
 **11/24 프로토타입까지**
 - [ ] 배포 주소에서 휴대폰 두 대(어르신·보호자)로 실시간 동작 확인 — 담당:
-- [ ] Vercel과 GitHub 자동 배포 연결 (main에 합치면 자동 배포) — 담당:
+- [x] Vercel과 GitHub 자동 배포 연결 (main에 합치면 자동 배포) — 담당: 202204303-create
 - [ ] 시연 시나리오 작성 (기상 확인 → 보호자 화면 갱신 → 긴급 요청 알림) — 담당:
 - [ ] 프로토타입 발표 자료 — 담당:
 
@@ -125,7 +125,7 @@ npm run lint       # oxlint
 
 ## 배포
 
-- 현재 배포 주소: https://senior-welfare-web.vercel.app (Vercel CLI로 수동 배포, GitHub 자동 배포는 아직 연결 전)
+- 현재 배포 주소: https://senior-welfare-web.vercel.app (GitHub 연결, main에 합치면 자동 배포)
 - 아이폰은 사파리에서 열어 "공유 → 홈 화면에 추가"로 설치합니다. 안드로이드 크롬은 설치 배너가 뜹니다.
 
 `vercel.json`에 SPA 라우팅 설정이 포함되어 있어 Vercel에 그대로 배포할 수 있습니다.
