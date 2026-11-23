@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import type { Role } from '@/features/auth/lib/demoAccounts'
 import type { UserProfile } from '@/features/auth/types'
 
 export type SocialProvider = 'kakao' | 'naver' | 'guest'
@@ -7,8 +8,12 @@ export type SocialProvider = 'kakao' | 'naver' | 'guest'
 interface UserState {
   isLoggedIn: boolean
   provider: SocialProvider | null
+  /** 로그인한 역할. 예전에 저장된 값에는 없으므로 비어 있으면 사용자(어르신)로 봅니다. */
+  role: Role | null
   profile: UserProfile
   login: (provider: SocialProvider, partial?: Partial<UserProfile>) => void
+  /** 시연용 계정으로 로그인 */
+  loginAs: (role: Role, partial?: Partial<UserProfile>) => void
   logout: () => void
   updateProfile: (partial: Partial<UserProfile>) => void
 }
@@ -33,10 +38,13 @@ export const useUserStore = create<UserState>()(
     (set) => ({
       isLoggedIn: false,
       provider: null,
+      role: null,
       profile: DEFAULT_PROFILE,
       login: (provider, partial) =>
-        set((s) => ({ isLoggedIn: true, provider, profile: { ...s.profile, ...partial } })),
-      logout: () => set({ isLoggedIn: false, provider: null }),
+        set((s) => ({ isLoggedIn: true, provider, role: 'elder', profile: { ...s.profile, ...partial } })),
+      loginAs: (role, partial) =>
+        set((s) => ({ isLoggedIn: true, provider: 'guest', role, profile: { ...s.profile, ...partial } })),
+      logout: () => set({ isLoggedIn: false, provider: null, role: null }),
       updateProfile: (partial) => set((s) => ({ profile: { ...s.profile, ...partial } })),
     }),
     { name: 'neulbom-user' },

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { LogoutButton } from '@/features/auth/components/LogoutButton'
 import { Logo } from '@/shared/layout/AppLayout'
 import { isFirebaseEnabled } from '@/shared/api/firebase'
 import { useNow } from '@/shared/hooks/useNow'
@@ -110,8 +111,11 @@ export function GuardianPage() {
       <header className="sticky top-0 z-30 border-b border-white/70 bg-white/60 backdrop-blur-xl">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
           <Logo />
-          <span className="rounded-full bg-violet-100 px-3 py-1 text-sm font-bold text-violet-700">
-            보호자 화면
+          <span className="flex items-center gap-2">
+            <span className="rounded-full bg-violet-100 px-3 py-1 text-sm font-bold text-violet-700">
+              보호자 화면
+            </span>
+            <LogoutButton />
           </span>
         </div>
       </header>
