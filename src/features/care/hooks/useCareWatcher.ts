@@ -2,7 +2,6 @@ import { useCallback, useEffect } from 'react'
 import { timeToMinutes, todayKey, useCareStore, type AlertChannel } from '@/features/care/store/useCareStore'
 import { useUserStore } from '@/features/auth/store/useUserStore'
 import { useNow } from '@/shared/hooks/useNow'
-import { showSystemNotification } from '@/shared/lib/notify'
 import type { Medication } from '@/features/care/types'
 
 /** later: 오늘 복용 시각이 지난 뒤 등록·변경한 약 (오늘은 챙기지 않고 내일부터) */
@@ -27,13 +26,14 @@ export function getMedStatus(
   return 'missed'
 }
 
+/** 실제로 동작하는 알림 방식. 카카오톡·문자는 백엔드 연동 전이라 '준비 중' */
+export const READY_CHANNELS: AlertChannel[] = ['webpush']
+
 export const CHANNEL_LABEL: Record<AlertChannel, string> = {
-  webpush: '웹 푸시',
+  webpush: '휴대폰 알림',
   kakao: '카카오톡',
   sms: '문자(SMS)',
 }
-
-const sendWebPush = showSystemNotification
 
 /**
  * 기상 확인 / 복약 체크 미확인 시 보호자·복지사에게 긴급 알림을 보냅니다.
@@ -47,9 +47,14 @@ export function useAlertDispatch() {
   const dispatch = useCallback(
     (key: string, reason: string) => {
       const recipients = [profile.guardianName, '담당 사회복지사']
-      const sent = pushAlert(key, { reason, channels, recipients })
+      // 카카오톡·문자는 아직 실제로 보내지 않으므로, 실제로 쓰는 휴대폰 알림만 기록합니다.
+      const sent = pushAlert(key, {
+        reason,
+        channels: channels.filter((c) => READY_CHANNELS.includes(c)),
+        recipients,
+      })
       if (!sent) return
-      if (channels.includes('webpush')) sendWebPush('늘봄 안부 알림', reason)
+      // 보호자용 휴대폰 알림은 보호자 화면(/guardian)이 띄웁니다. 어르신 휴대폰에는 띄우지 않습니다.
     },
     [channels, profile.guardianName, pushAlert],
   )

@@ -21,7 +21,7 @@ import {
 } from '@/features/care/components/CareWidgets'
 import { BigButton, InfoCard, Modal, PageHeader, SelectField, StatusNote, TextField } from '@/shared/ui'
 import { PushPermission } from '@/features/care/components/PushPermission'
-import { CHANNEL_LABEL } from '@/features/care/hooks/useCareWatcher'
+import { CHANNEL_LABEL, READY_CHANNELS } from '@/features/care/hooks/useCareWatcher'
 import { useCareStore, type AlertChannel } from '@/features/care/store/useCareStore'
 import { useSettingsStore } from '@/shared/store/useSettingsStore'
 import { speak } from '@/shared/lib/notify'
@@ -184,24 +184,32 @@ export function CarePage() {
             <div className="grid grid-cols-3 gap-2">
               {(Object.keys(CHANNEL_LABEL) as AlertChannel[]).map((c) => {
                 const Icon = CHANNEL_ICON[c]
-                const on = care.channels.includes(c)
+                const ready = READY_CHANNELS.includes(c)
+                const on = ready && care.channels.includes(c)
                 return (
                   <button
                     key={c}
-                    onClick={() => care.toggleChannel(c)}
+                    onClick={() => ready && care.toggleChannel(c)}
                     aria-pressed={on}
+                    disabled={!ready}
                     className={`flex min-h-20 flex-col items-center justify-center gap-1 rounded-2xl text-sm font-bold ring-2 transition ${
                       on
                         ? 'bg-brand-600 text-white ring-brand-600'
-                        : 'bg-white/80 text-ink-soft ring-brand-100'
+                        : ready
+                          ? 'bg-white/80 text-ink-soft ring-brand-100'
+                          : 'cursor-not-allowed bg-slate-50 text-slate-400 ring-slate-100'
                     }`}
                   >
                     <Icon className="size-6" aria-hidden />
                     {CHANNEL_LABEL[c]}
+                    {!ready && <span className="text-xs font-semibold">준비 중</span>}
                   </button>
                 )
               })}
             </div>
+            <p className="mt-2 text-sm text-ink-soft">
+              카카오톡·문자 발송은 준비 중이에요. 지금은 휴대폰 알림으로 알려 드려요.
+            </p>
             <PushPermission
               onGranted={() => {
                 if (!care.channels.includes('webpush')) care.toggleChannel('webpush')
@@ -265,8 +273,11 @@ export function CarePage() {
                         minute: '2-digit',
                       })}
                       {' · '}
-                      {a.channels.map((c) => CHANNEL_LABEL[c]).join(', ') || '채널 없음'} →{' '}
-                      {a.recipients.join(', ')}
+                      {a.channels
+                        .filter((c) => READY_CHANNELS.includes(c))
+                        .map((c) => CHANNEL_LABEL[c])
+                        .join(', ') || '보호자 화면'}{' '}
+                      → {a.recipients.join(', ')}
                     </p>
                     <AlertAckLine alert={a} />
                   </li>

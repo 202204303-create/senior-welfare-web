@@ -119,9 +119,8 @@ export function AppLayout() {
       <main id="main" className="mx-auto max-w-6xl px-4 pb-32 pt-5 sm:px-6 md:pb-12">
         <InstallBanner />
         <NoticeStack />
-        {/* 안부·복약 화면에는 기상 카드와 복약 목록이 있으므로 배너를 띄우지 않습니다.
-            홈 화면에는 기상 카드가 있으므로 약 안내만 띄웁니다. */}
-        {pathname !== '/care' && <CareReminderBanner showWake={pathname !== '/'} />}
+        {/* 홈·안부·복약 화면에는 기상 카드와 오늘의 약이 이미 있으므로 배너를 띄우지 않습니다. */}
+        {pathname !== '/care' && pathname !== '/' && <CareReminderBanner />}
         <Outlet />
       </main>
 

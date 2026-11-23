@@ -36,7 +36,7 @@ import { PushPermission } from '@/features/care/components/PushPermission'
 import { ackAlert, watchAlerts, watchDays, watchFamily, type FamilyInfo } from '@/features/care/api/family'
 import { findCareIssues, fromNow, type CareIssue } from '@/features/care/lib/guardianIssues'
 import { STATUS_STYLE } from '@/features/care/lib/status'
-import { CHANNEL_LABEL, getMedStatus } from '@/features/care/hooks/useCareWatcher'
+import { CHANNEL_LABEL, READY_CHANNELS, getMedStatus } from '@/features/care/hooks/useCareWatcher'
 import { todayKey, type AlertLog, type DayRecord } from '@/features/care/store/useCareStore'
 
 const CODE_KEY = 'neulbom-guardian-code'
@@ -93,7 +93,12 @@ const fmtTime = (iso: string) =>
 /** 보호자 화면: 가족 코드로 어르신의 오늘 기상·복약 상태와 알림을 실시간으로 봅니다. */
 export function GuardianPage() {
   const [params] = useSearchParams()
-  const [code, setCode] = useState(() => (params.get('code') ?? readSavedCode()).toUpperCase())
+  // 어르신이 보낸 링크(/guardian?code=XXXXXX)로 들어오면 코드를 바로 저장해, 다음부터는 링크 없이 열려요.
+  const [code, setCode] = useState(() => {
+    const fromLink = (params.get('code') ?? '').toUpperCase()
+    if (fromLink) saveCode(fromLink)
+    return fromLink || readSavedCode().toUpperCase()
+  })
 
   const connect = (c: string) => {
     saveCode(c)
@@ -285,7 +290,7 @@ function GuardianDashboard({ code, onChangeCode }: { code: string; onChangeCode:
 
   return (
     <div className="animate-fade-up space-y-5">
-      <NoticeStack useStore={useGuardianNoticeStore} />
+      <NoticeStack useStore={useGuardianNoticeStore} dismissLabel="알림 닫기" dismissAllLabel="모두 닫기" />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-base font-bold text-brand-600">
@@ -449,7 +454,10 @@ function GuardianDashboard({ code, onChangeCode }: { code: string; onChangeCode:
                     minute: '2-digit',
                   })}
                   {' · '}
-                  {a.channels.map((c) => CHANNEL_LABEL[c]).join(', ') || '채널 없음'}
+                  {a.channels
+                    .filter((c) => READY_CHANNELS.includes(c))
+                    .map((c) => CHANNEL_LABEL[c])
+                    .join(', ') || '보호자 화면'}
                 </p>
                 {a.ackAt ? (
                   <p className="mt-2 flex items-center gap-1.5 text-sm font-bold text-emerald-700">
@@ -466,7 +474,7 @@ function GuardianDashboard({ code, onChangeCode }: { code: string; onChangeCode:
                     disabled={acking !== null}
                     onClick={() => ack(a)}
                   >
-                    확인했어요 (어르신께 알리기)
+                    확인했다고 어르신께 알리기
                   </BigButton>
                 )}
                 {ackError?.id === a.id && (

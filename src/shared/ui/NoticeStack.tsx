@@ -20,7 +20,16 @@ const fmt = (iso: string) =>
  * 화면 위쪽에 쌓이는 '지워지지 않는 알림'.
  * 사용자가 '확인했어요'를 눌러야만 사라집니다. (토스트를 쓰지 않음 — 교수님 피드백)
  */
-export function NoticeStack({ useStore = useNoticeStore }: { useStore?: NoticeStore }) {
+export function NoticeStack({
+  useStore = useNoticeStore,
+  dismissLabel = '확인했어요',
+  dismissAllLabel = '모두 확인',
+}: {
+  useStore?: NoticeStore
+  /** 알림 카드를 닫는 버튼 이름. 보호자 화면은 '어르신께 알리기'와 헷갈리지 않게 '알림 닫기' */
+  dismissLabel?: string
+  dismissAllLabel?: string
+}) {
   const { notices, dismissNotice, dismissAll } = useStore()
   if (notices.length === 0) return null
 
@@ -37,7 +46,7 @@ export function NoticeStack({ useStore = useNoticeStore }: { useStore?: NoticeSt
             onClick={dismissAll}
             className="min-h-11 rounded-xl px-3 text-base font-bold text-brand-700 hover:bg-brand-50"
           >
-            모두 확인
+            {dismissAllLabel}
           </button>
         )}
       </div>
@@ -60,7 +69,7 @@ export function NoticeStack({ useStore = useNoticeStore }: { useStore?: NoticeSt
                 onClick={() => dismissNotice(n.id)}
                 className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-white text-base font-bold text-brand-800 ring-1 ring-brand-200 hover:bg-brand-50"
               >
-                <Check className="size-5" aria-hidden /> 확인했어요
+                <Check className="size-5" aria-hidden /> {dismissLabel}
               </button>
             </li>
           )
