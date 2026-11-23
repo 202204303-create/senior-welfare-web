@@ -20,13 +20,23 @@ import { useSearchParams } from 'react-router-dom'
 import { Logo } from '@/shared/layout/AppLayout'
 import { isFirebaseEnabled } from '@/shared/api/firebase'
 import { useNow } from '@/shared/hooks/useNow'
-import { useSettingsStore } from '@/shared/store/useSettingsStore'
+import { useGuardianNoticeStore, type NoticeTone } from '@/shared/store/useNoticeStore'
 import { showSystemNotification } from '@/shared/lib/notify'
-import { BigButton, EmptyState, ErrorState, InfoCard, LoadingList, TextField, Toast } from '@/shared/ui'
+import {
+  BigButton,
+  EmptyState,
+  ErrorState,
+  InfoCard,
+  LoadingList,
+  NoticeStack,
+  StatusNote,
+  TextField,
+} from '@/shared/ui'
+import { PushPermission } from '@/features/care/components/PushPermission'
 import { ackAlert, watchAlerts, watchDays, watchFamily, type FamilyInfo } from '@/features/care/api/family'
 import { findCareIssues, fromNow, type CareIssue } from '@/features/care/lib/guardianIssues'
 import { STATUS_STYLE } from '@/features/care/lib/status'
-import { CHANNEL_LABEL, getMedStatus, requestPushPermission } from '@/features/care/hooks/useCareWatcher'
+import { CHANNEL_LABEL, getMedStatus } from '@/features/care/hooks/useCareWatcher'
 import { todayKey, type AlertLog, type DayRecord } from '@/features/care/store/useCareStore'
 
 const CODE_KEY = 'neulbom-guardian-code'
@@ -47,10 +57,13 @@ const saveCode = (code: string) => {
   }
 }
 
-/** 새 알림을 토스트와 브라우저 알림(권한이 있을 때)으로 알려 줍니다. */
-function notify(reason: string) {
-  useSettingsStore.getState().showToast(reason, 'warn')
-  showSystemNotification('늘봄 안부 알림', reason)
+/**
+ * 새 알림을 '지워지지 않는 화면 알림'과 휴대폰 알림(권한이 있을 때)으로 알려 줍니다.
+ * 화면 알림은 보호자가 '확인했어요'를 누를 때까지 남습니다.
+ */
+function notify(message: string, tone: NoticeTone, key: string) {
+  useGuardianNoticeStore.getState().addNotice({ message, tone, key })
+  showSystemNotification('늘봄 안부 알림', message)
 }
 
 /** 보호자 화면이 직접 알린 경고 키 (새로고침해도 같은 경고를 반복하지 않도록 저장) */
@@ -110,7 +123,6 @@ export function GuardianPage() {
           <CodeForm onSubmit={connect} />
         )}
       </main>
-      <Toast />
     </div>
   )
 }
@@ -155,7 +167,8 @@ function GuardianDashboard({ code, onChangeCode }: { code: string; onChangeCode:
   const now = useNow(30_000)
   const dateKey = todayKey(now)
   const sinceKey = todayKey(new Date(now.getTime() - (HISTORY_DAYS - 1) * 86_400_000))
-  const showToast = useSettingsStore((s) => s.showToast)
+  const [ackError, setAckError] = useState<{ id: string; message: string } | null>(null)
+  const noticeCount = useGuardianNoticeStore((s) => s.notices.length)
   const [family, setFamily] = useState<FamilyInfo | null | undefined>(undefined)
   const [days, setDays] = useState<Record<string, DayRecord>>({})
   const [alerts, setAlerts] = useState<AlertLog[]>([])
@@ -175,7 +188,8 @@ function GuardianDashboard({ code, onChangeCode }: { code: string; onChangeCode:
           // 화면을 연 뒤 어르신 기기에서 새로 보낸 알림은 바로 알려 줍니다.
           if (seen.current) {
             for (const a of list) {
-              if (!seen.current.has(a.id)) notify(a.reason)
+              if (!seen.current.has(a.id))
+                notify(a.reason, a.kind === 'sos' ? 'danger' : 'warn', `alert-${a.id}`)
             }
           }
           seen.current = new Set(list.map((a) => a.id))
@@ -207,7 +221,7 @@ function GuardianDashboard({ code, onChangeCode }: { code: string; onChangeCode:
       const reported = new Set(alertsRef.current.map((a) => a.key))
       const fresh = issues.filter((i) => !done.includes(i.key) && !reported.has(i.key))
       if (!fresh.length) return
-      fresh.forEach((i) => notify(i.text))
+      fresh.forEach((i) => notify(i.text, i.level === 'danger' ? 'danger' : 'warn', `issue-${i.key}`))
       saveNotified(code, [...done, ...fresh.map((i) => i.key)])
     }, GUARDIAN_NOTIFY_DELAY_MS)
     return () => clearTimeout(timer)
@@ -216,23 +230,24 @@ function GuardianDashboard({ code, onChangeCode }: { code: string; onChangeCode:
   const ack = async (a: AlertLog) => {
     if (!family) return
     setAcking(a.id)
+    setAckError(null)
     try {
       await ackAlert(code, a.id, family.guardianName)
-      showToast('확인했다고 어르신 화면에 알려 드렸어요.', 'success')
+      // 이 알림에 대한 화면 알림도 함께 확인 처리합니다.
+      const { notices, dismissNotice } = useGuardianNoticeStore.getState()
+      notices.filter((n) => n.key === `alert-${a.id}`).forEach((n) => dismissNotice(n.id))
     } catch (e) {
-      showToast(`확인 표시를 보내지 못했어요: ${(e as Error).message}`, 'warn')
+      setAckError({ id: a.id, message: (e as Error).message })
     } finally {
       setAcking(null)
     }
   }
 
-  const enablePush = async () => {
-    const res = await requestPushPermission()
-    if (res === 'granted')
-      showToast('이 기기에서 알림을 받아요. 화면을 켜 두시면 바로 알려 드려요.', 'success')
-    else if (res === 'unsupported') showToast('이 브라우저는 알림을 지원하지 않아요.', 'warn')
-    else showToast('알림 권한이 거부되었어요. 브라우저 설정에서 허용해 주세요.', 'warn')
-  }
+  // 확인하지 않은 알림 개수를 브라우저 탭 제목에 보여 줍니다. 예: (2) 늘봄 보호자
+  useEffect(() => {
+    const base = '늘봄 보호자 화면'
+    document.title = noticeCount ? `(${noticeCount}) ${base}` : base
+  }, [noticeCount])
 
   if (error)
     return (
@@ -270,6 +285,7 @@ function GuardianDashboard({ code, onChangeCode }: { code: string; onChangeCode:
 
   return (
     <div className="animate-fade-up space-y-5">
+      <NoticeStack useStore={useGuardianNoticeStore} />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-base font-bold text-brand-600">
@@ -404,15 +420,10 @@ function GuardianDashboard({ code, onChangeCode }: { code: string; onChangeCode:
       </InfoCard>
 
       {/* 알림 */}
-      <InfoCard
-        title="받은 알림"
-        icon={<BellRing />}
-        action={
-          <BigButton size="md" variant="soft" onClick={enablePush}>
-            알림 켜기
-          </BigButton>
-        }
-      >
+      <InfoCard title="받은 알림" icon={<BellRing />}>
+        <div className="mb-4">
+          <PushPermission />
+        </div>
         {alerts.length === 0 ? (
           <p className="rounded-2xl bg-white/70 p-4 text-center text-base text-ink-soft">
             아직 받은 알림이 없어요.
@@ -458,13 +469,19 @@ function GuardianDashboard({ code, onChangeCode }: { code: string; onChangeCode:
                     확인했어요 (어르신께 알리기)
                   </BigButton>
                 )}
+                {ackError?.id === a.id && (
+                  <StatusNote tone="warn" className="mt-2" onClose={() => setAckError(null)}>
+                    확인 표시를 보내지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요. ({ackError.message})
+                  </StatusNote>
+                )}
               </li>
             ))}
           </ul>
         )}
         <p className="mt-3 text-sm text-ink-soft">
-          이 화면을 켜 두시면 새 알림이 오는 즉시 알려 드려요. 어르신 앱이 꺼져 있어도 기상·복약 미확인은 이
-          화면이 직접 알려 드려요.
+          이 화면을 켜 두시면 새 알림이 오는 즉시 화면 위쪽과 휴대폰 알림으로 알려 드려요. 화면 알림은
+          '확인했어요'를 누를 때까지 남아요. 어르신 앱이 꺼져 있어도 기상·복약 미확인은 이 화면이 직접 알려
+          드려요.
         </p>
       </InfoCard>
 

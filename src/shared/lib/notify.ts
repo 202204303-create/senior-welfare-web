@@ -6,11 +6,13 @@
  */
 export function showSystemNotification(title: string, body: string) {
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
+  // requireInteraction: 사용자가 직접 닫을 때까지 알림이 화면에 남습니다. (지원하는 기기에서)
   const options: NotificationOptions = {
     body,
     icon: '/pwa-192x192.png',
     badge: '/pwa-192x192.png',
     tag: body,
+    requireInteraction: true,
   }
 
   const fallback = () => {

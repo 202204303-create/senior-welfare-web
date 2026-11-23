@@ -14,18 +14,17 @@ import {
 import { useState } from 'react'
 import { getMedStatus, useAlertDispatch } from '@/features/care/hooks/useCareWatcher'
 import { useSyncStatus, type SyncStatus } from '@/features/care/hooks/useCareSync'
+import { WAKE_REMIND_BEFORE_MIN } from '@/features/care/hooks/useCareReminder'
 import { STATUS_STYLE } from '@/features/care/lib/status'
 import { useNow } from '@/shared/hooks/useNow'
 import { timeToMinutes, todayKey, useCareStore, type AlertLog } from '@/features/care/store/useCareStore'
-import { useSettingsStore } from '@/shared/store/useSettingsStore'
-import { BigButton, Modal } from '@/shared/ui'
+import { BigButton, Modal, StatusNote } from '@/shared/ui'
 
 const fmtTime = (iso: string) =>
   new Date(iso).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })
 
 export function WakeUpCard() {
   const { records, checkWakeUp, wakeUpDeadline } = useCareStore()
-  const showToast = useSettingsStore((s) => s.showToast)
   const sync = useSyncStatus((s) => s.status)
   const wakeUpAt = records[todayKey()]?.wakeUpAt
 
@@ -64,7 +63,6 @@ export function WakeUpCard() {
       <button
         onClick={() => {
           checkWakeUp()
-          showToast('안부 확인 완료! 오늘도 건강한 하루 보내세요.', 'success')
         }}
         className="relative flex min-h-20 w-full items-center justify-center gap-3 rounded-3xl bg-white text-2xl font-black text-brand-700 shadow-lg transition active:scale-[0.98]"
       >
@@ -82,7 +80,6 @@ export function WakeUpCard() {
 export function MedChecklist({ compact = false }: { compact?: boolean }) {
   const now = useNow(30_000)
   const { medications, records, toggleMed, medGraceMinutes } = useCareStore()
-  const showToast = useSettingsStore((s) => s.showToast)
   const taken = records[todayKey()]?.takenMeds ?? {}
   // 실수로 눌러 복용 기록이 지워지지 않도록, 취소할 때는 한 번 더 묻습니다.
   const [undoId, setUndoId] = useState<string | null>(null)
@@ -111,7 +108,6 @@ export function MedChecklist({ compact = false }: { compact?: boolean }) {
                 onClick={() => {
                   if (isTaken) return setUndoId(med.id)
                   toggleMed(med.id)
-                  showToast(`${med.name} 복용을 기록했어요.`, 'success')
                 }}
                 aria-pressed={isTaken}
                 className={`flex w-full items-center gap-4 rounded-2xl p-4 text-left ring-2 transition active:scale-[0.99] ${
@@ -170,7 +166,6 @@ export function MedChecklist({ compact = false }: { compact?: boolean }) {
             onClick={() => {
               if (undoMed) {
                 toggleMed(undoMed.id)
-                showToast(`${undoMed.name} 복용 기록을 취소했어요.`, 'info')
               }
               setUndoId(null)
             }}
@@ -335,67 +330,129 @@ function SosStatus() {
   )
 }
 
+interface DoneItem {
+  key: string
+  text: string
+}
+
 /**
- * 약 드실 시간이 되었는데 아직 체크하지 않은 약을 화면 위에 크게 보여 줍니다.
- * '먹었어요'를 누르면 바로 복용 기록이 남습니다.
+ * 어르신 안내 배너. 화면 맨 위에 떠 있고, 처리하거나 닫을 때까지 사라지지 않습니다. (토스트 대신)
+ * - 기상 확인 마감 30분 전부터 '일어났어요'를 누르지 않으셨으면: 바로 누를 수 있는 버튼
+ * - 약 드실 시각이 지났는데 체크하지 않은 약: '먹었어요' 버튼, 놓친 약은 보호자께 알렸다는 안내
+ * - 배너에서 방금 기록한 일: 초록색 완료 줄 (닫기 전까지 남음)
  */
-export function MedReminderBanner() {
+export function CareReminderBanner({ showWake = true }: { showWake?: boolean }) {
   const now = useNow(30_000)
-  const { medications, records, toggleMed } = useCareStore()
-  const showToast = useSettingsStore((s) => s.showToast)
+  const { medications, records, toggleMed, checkWakeUp, wakeUpDeadline, medGraceMinutes, alerts } =
+    useCareStore()
   const [later, setLater] = useState<string[]>([])
-  const taken = records[todayKey(now)]?.takenMeds ?? {}
+  const [done, setDone] = useState<DoneItem[]>([])
+  const k = todayKey(now)
+  const rec = records[k] ?? { takenMeds: {} }
   const nowMin = now.getHours() * 60 + now.getMinutes()
-  const { medGraceMinutes } = useCareStore()
+  const alerted = new Set(alerts.map((a) => a.key))
+  const deadline = timeToMinutes(wakeUpDeadline)
+
+  const wakeDue = showWake && !rec.wakeUpAt && nowMin >= deadline - WAKE_REMIND_BEFORE_MIN
   const pending = medications.filter(
     (m) =>
-      !taken[m.id] &&
+      !rec.takenMeds[m.id] &&
       nowMin >= timeToMinutes(m.time) &&
       !later.includes(m.id) &&
       getMedStatus(m, undefined, now, medGraceMinutes) !== 'later',
   )
-  if (pending.length === 0) return null
+  if (!wakeDue && pending.length === 0 && done.length === 0) return null
+
+  const addDone = (key: string, text: string) =>
+    setDone((d) => [...d.filter((x) => x.key !== key), { key, text }])
+  const anyMissed =
+    (wakeDue && nowMin > deadline) ||
+    pending.some((m) => getMedStatus(m, undefined, now, medGraceMinutes) === 'missed')
+  const title = anyMissed
+    ? '아직 확인하지 않은 일이 있어요'
+    : wakeDue
+      ? '좋은 아침이에요'
+      : pending.length
+        ? '약 드실 시간이에요'
+        : '기록했어요'
 
   return (
     <section
       className="mb-5 animate-fade-up rounded-3xl bg-white p-5 shadow-glass-lg ring-2 ring-brand-400"
-      aria-label="지금 드실 약"
+      aria-label="오늘 할 일 안내"
     >
       <p className="mb-3 flex items-center gap-2 text-xl font-black text-brand-800">
         <BellRing className="size-6" aria-hidden />
-        {pending.some((m) => getMedStatus(m, undefined, now, medGraceMinutes) === 'missed')
-          ? '아직 안 드신 약이 있어요'
-          : '약 드실 시간이에요'}
+        {title}
       </p>
       <ul className="space-y-3">
-        {pending.map((m) => (
-          <li key={m.id} className="rounded-2xl bg-brand-50/80 p-4">
-            <p className="text-lg font-extrabold">{m.name}</p>
+        {wakeDue && (
+          <li className="rounded-2xl bg-amber-50/80 p-4">
+            <p className="text-lg font-extrabold">일어나셨으면 눌러 주세요</p>
             <p className="mb-3 text-base text-ink-soft">
-              {m.slot} {m.time}
-              {m.memo ? ` · ${m.memo}` : ''}
+              {nowMin > deadline && alerted.has(`${k}-wake`)
+                ? `${wakeUpDeadline}이 지나 보호자께 알렸어요. 지금 누르시면 보호자 화면에 바로 보여요.`
+                : `${wakeUpDeadline}까지 누르지 않으시면 보호자께 알림이 가요.`}
             </p>
-            <div className="flex gap-2">
-              <BigButton
-                size="lg"
-                icon={<Check />}
-                className="flex-1 whitespace-nowrap"
-                onClick={() => {
-                  toggleMed(m.id)
-                  showToast(`${m.name} 복용을 기록했어요. 보호자 화면에도 바로 보여요.`, 'success')
-                }}
-              >
-                먹었어요
-              </BigButton>
-              <BigButton
-                size="md"
-                variant="ghost"
-                className="shrink-0 whitespace-nowrap"
-                onClick={() => setLater((l) => [...l, m.id])}
-              >
-                나중에
-              </BigButton>
-            </div>
+            <BigButton
+              size="lg"
+              fullWidth
+              icon={<Sun />}
+              className="whitespace-nowrap"
+              onClick={() => {
+                checkWakeUp()
+                addDone('wake', `안부 확인 완료 · ${fmtTime(new Date().toISOString())}`)
+              }}
+            >
+              일어났어요
+            </BigButton>
+          </li>
+        )}
+        {pending.map((m) => {
+          const missed = getMedStatus(m, undefined, now, medGraceMinutes) === 'missed'
+          return (
+            <li key={m.id} className={`rounded-2xl p-4 ${missed ? 'bg-rose-50/80' : 'bg-brand-50/80'}`}>
+              <p className="text-lg font-extrabold">{m.name}</p>
+              <p className="text-base text-ink-soft">
+                {m.slot} {m.time}
+                {m.memo ? ` · ${m.memo}` : ''}
+              </p>
+              {missed && (
+                <p className="mt-1 text-sm font-bold text-rose-700">
+                  {alerted.has(`${k}-med-${m.id}`)
+                    ? '시간이 많이 지나 보호자께 알렸어요. 드셨다면 눌러 주세요.'
+                    : '시간이 많이 지났어요. 드셨다면 눌러 주세요.'}
+                </p>
+              )}
+              <div className="mt-3 flex gap-2">
+                <BigButton
+                  size="lg"
+                  icon={<Check />}
+                  className="flex-1 whitespace-nowrap"
+                  onClick={() => {
+                    toggleMed(m.id)
+                    addDone(m.id, `${m.name} 복용 기록 완료 · ${fmtTime(new Date().toISOString())}`)
+                  }}
+                >
+                  먹었어요
+                </BigButton>
+                <BigButton
+                  size="md"
+                  variant="ghost"
+                  className="shrink-0 whitespace-nowrap"
+                  onClick={() => setLater((l) => [...l, m.id])}
+                >
+                  나중에
+                </BigButton>
+              </div>
+            </li>
+          )
+        })}
+        {done.map((d) => (
+          <li key={d.key}>
+            <StatusNote onClose={() => setDone((list) => list.filter((x) => x.key !== d.key))}>
+              {d.text}. 보호자 화면에도 보여요.
+            </StatusNote>
           </li>
         ))}
       </ul>

@@ -19,8 +19,9 @@ import {
   SOSButton,
   WakeUpCard,
 } from '@/features/care/components/CareWidgets'
-import { BigButton, InfoCard, Modal, PageHeader, SelectField, TextField } from '@/shared/ui'
-import { CHANNEL_LABEL, requestPushPermission } from '@/features/care/hooks/useCareWatcher'
+import { BigButton, InfoCard, Modal, PageHeader, SelectField, StatusNote, TextField } from '@/shared/ui'
+import { PushPermission } from '@/features/care/components/PushPermission'
+import { CHANNEL_LABEL } from '@/features/care/hooks/useCareWatcher'
 import { useCareStore, type AlertChannel } from '@/features/care/store/useCareStore'
 import { useSettingsStore } from '@/shared/store/useSettingsStore'
 import { speak } from '@/shared/lib/notify'
@@ -40,7 +41,7 @@ const EMPTY_FORM = { name: '', slot: '아침' as MedSlot, time: '08:00', memo: '
 export function CarePage() {
   const care = useCareStore()
   const profile = useUserStore((s) => s.profile)
-  const showToast = useSettingsStore((s) => s.showToast)
+  const [medNote, setMedNote] = useState<string | null>(null) // 약 추가·수정·삭제 결과 (닫기 전까지 남음)
   const voiceGuide = useSettingsStore((s) => s.voiceGuide)
   const setVoiceGuide = useSettingsStore((s) => s.setVoiceGuide)
   const [addOpen, setAddOpen] = useState(false)
@@ -61,15 +62,6 @@ export function CarePage() {
     setAddOpen(true)
   }
 
-  const enablePush = async () => {
-    const res = await requestPushPermission()
-    if (res === 'granted') {
-      if (!care.channels.includes('webpush')) care.toggleChannel('webpush')
-      showToast('웹 푸시 알림이 켜졌어요.', 'success')
-    } else if (res === 'unsupported') showToast('이 브라우저는 웹 푸시를 지원하지 않아요.', 'warn')
-    else showToast('알림 권한이 거부되었어요. 브라우저 설정에서 허용해 주세요.', 'warn')
-  }
-
   const submit = () => {
     if (!form.name.trim()) return
     const med = {
@@ -80,10 +72,10 @@ export function CarePage() {
     }
     if (editId) {
       care.updateMedication(editId, med)
-      showToast(`${med.name} 정보를 고쳤어요.`, 'success')
+      setMedNote(`${med.name} 정보를 고쳤어요. (${med.slot} ${med.time})`)
     } else {
       care.addMedication(med)
-      showToast('새 약을 추가했어요.', 'success')
+      setMedNote(`${med.name}을(를) 추가했어요. (${med.slot} ${med.time})`)
     }
     setForm(EMPTY_FORM)
     setEditId(null)
@@ -107,6 +99,11 @@ export function CarePage() {
               </BigButton>
             }
           >
+            {medNote && (
+              <StatusNote className="mb-4" onClose={() => setMedNote(null)}>
+                {medNote}
+              </StatusNote>
+            )}
             <div className="mb-4">
               <MedProgress />
             </div>
@@ -205,16 +202,11 @@ export function CarePage() {
                 )
               })}
             </div>
-            <BigButton
-              variant="soft"
-              fullWidth
-              size="md"
-              icon={<BellRing />}
-              className="mt-3"
-              onClick={enablePush}
-            >
-              이 기기에서 웹 푸시 허용하기
-            </BigButton>
+            <PushPermission
+              onGranted={() => {
+                if (!care.channels.includes('webpush')) care.toggleChannel('webpush')
+              }}
+            />
             <button
               onClick={() => {
                 const next = !voiceGuide
@@ -347,7 +339,7 @@ export function CarePage() {
             onClick={() => {
               if (deleteMed) {
                 care.removeMedication(deleteMed.id)
-                showToast(`${deleteMed.name}을(를) 목록에서 지웠어요.`, 'info')
+                setMedNote(`${deleteMed.name}을(를) 목록에서 지웠어요.`)
               }
               setDeleteId(null)
             }}

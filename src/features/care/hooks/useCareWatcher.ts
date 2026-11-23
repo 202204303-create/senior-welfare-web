@@ -1,7 +1,6 @@
 import { useCallback, useEffect } from 'react'
 import { timeToMinutes, todayKey, useCareStore, type AlertChannel } from '@/features/care/store/useCareStore'
 import { useUserStore } from '@/features/auth/store/useUserStore'
-import { useSettingsStore } from '@/shared/store/useSettingsStore'
 import { useNow } from '@/shared/hooks/useNow'
 import { showSystemNotification } from '@/shared/lib/notify'
 import type { Medication } from '@/features/care/types'
@@ -44,7 +43,6 @@ export function useAlertDispatch() {
   const channels = useCareStore((s) => s.channels)
   const pushAlert = useCareStore((s) => s.pushAlert)
   const profile = useUserStore((s) => s.profile)
-  const showToast = useSettingsStore((s) => s.showToast)
 
   const dispatch = useCallback(
     (key: string, reason: string) => {
@@ -52,9 +50,8 @@ export function useAlertDispatch() {
       const sent = pushAlert(key, { reason, channels, recipients })
       if (!sent) return
       if (channels.includes('webpush')) sendWebPush('늘봄 안부 알림', reason)
-      showToast(`보호자께 알림을 보냈어요: ${reason}`, 'warn')
     },
-    [channels, profile.guardianName, pushAlert, showToast],
+    [channels, profile.guardianName, pushAlert],
   )
 
   const sendSOS = useCallback(() => {

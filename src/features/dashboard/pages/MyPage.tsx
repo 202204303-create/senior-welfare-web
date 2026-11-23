@@ -1,7 +1,7 @@
 import { LogOut, Save, UserRound } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BigButton, InfoCard, PageHeader, SelectField, TextField } from '@/shared/ui'
+import { BigButton, InfoCard, PageHeader, SelectField, StatusNote, TextField } from '@/shared/ui'
 import { FONT_SCALE_PX, useSettingsStore, type FontScale } from '@/shared/store/useSettingsStore'
 import { getAge, useUserStore } from '@/features/auth/store/useUserStore'
 import type { IncomeLevel, Region } from '@/shared/types'
@@ -20,10 +20,14 @@ const SCALE_LABEL: Record<FontScale, string> = { normal: '보통', large: '크�
 
 export function MyPage() {
   const { profile, updateProfile, logout, provider } = useUserStore()
-  const { fontScale, setFontScale, showToast } = useSettingsStore()
+  const { fontScale, setFontScale } = useSettingsStore()
+  const [saved, setSaved] = useState(false) // 저장 결과 (다시 고치기 전까지 남음)
   const navigate = useNavigate()
   const [draft, setDraft] = useState<UserProfile>(profile)
-  const set = <K extends keyof UserProfile>(k: K, v: UserProfile[K]) => setDraft((d) => ({ ...d, [k]: v }))
+  const set = <K extends keyof UserProfile>(k: K, v: UserProfile[K]) => {
+    setSaved(false)
+    setDraft((d) => ({ ...d, [k]: v }))
+  }
 
   return (
     <div className="mx-auto max-w-3xl animate-fade-up">
@@ -46,7 +50,7 @@ export function MyPage() {
         onSubmit={(e) => {
           e.preventDefault()
           updateProfile(draft)
-          showToast('내 정보를 저장했어요.', 'success')
+          setSaved(true)
         }}
       >
         <InfoCard title="기본 정보">
@@ -125,6 +129,7 @@ export function MyPage() {
           </div>
         </InfoCard>
 
+        {saved && <StatusNote onClose={() => setSaved(false)}>내 정보를 저장했어요.</StatusNote>}
         <BigButton type="submit" size="xl" fullWidth icon={<Save />}>
           저장하기
         </BigButton>

@@ -1,13 +1,13 @@
 import { Briefcase, HeartPulse, Home, Landmark, MapPin, Type, UserRound } from 'lucide-react'
 import { useEffect } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
-import { MedReminderBanner } from '@/features/care/components/CareWidgets'
+import { CareReminderBanner } from '@/features/care/components/CareWidgets'
 import { useCareReminder } from '@/features/care/hooks/useCareReminder'
 import { useCareSync } from '@/features/care/hooks/useCareSync'
 import { useCareWatcher } from '@/features/care/hooks/useCareWatcher'
 import { FONT_SCALE_PX, useSettingsStore, type FontScale } from '@/shared/store/useSettingsStore'
 import { useUserStore } from '@/features/auth/store/useUserStore'
-import { InstallBanner, Toast } from '@/shared/ui'
+import { InstallBanner, NoticeStack } from '@/shared/ui'
 
 const NAV = [
   { to: '/', label: '홈', Icon: Home, end: true },
@@ -118,8 +118,10 @@ export function AppLayout() {
 
       <main id="main" className="mx-auto max-w-6xl px-4 pb-32 pt-5 sm:px-6 md:pb-12">
         <InstallBanner />
-        {/* 안부·복약 화면에는 복약 체크 목록이 있으므로 배너를 띄우지 않습니다. */}
-        {pathname !== '/care' && <MedReminderBanner />}
+        <NoticeStack />
+        {/* 안부·복약 화면에는 기상 카드와 복약 목록이 있으므로 배너를 띄우지 않습니다.
+            홈 화면에는 기상 카드가 있으므로 약 안내만 띄웁니다. */}
+        {pathname !== '/care' && <CareReminderBanner showWake={pathname !== '/'} />}
         <Outlet />
       </main>
 
@@ -155,8 +157,6 @@ export function AppLayout() {
           ))}
         </ul>
       </nav>
-
-      <Toast />
     </div>
   )
 }
