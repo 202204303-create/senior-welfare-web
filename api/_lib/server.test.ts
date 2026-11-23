@@ -59,9 +59,7 @@ test('어르신 앱이 이미 만든 알림(같은 key)은 서버가 다시 만�
 test('약 드실 시간에는 어르신 기기로 한 번만 안내한다', async () => {
   const r = await run('08:05')
   assert.equal(r.elderReminders, 1)
-  assert.deepEqual(sentTo('elder-phone'), [
-    "혈압약 드실 시간이에요. 드신 뒤 늘봄에서 '먹었어요'를 눌러 주세요.",
-  ])
+  assert.deepEqual(sentTo('elder-phone'), ["혈압약 드실 시간이에요. 드신 뒤 늘봄에서 '먹었어요'를 눌러 주세요."])
   await run('08:15')
   assert.equal(sentTo('elder-phone').length, 1)
 })
@@ -86,11 +84,7 @@ test('앱을 지운 기기(죽은 토큰)는 지운다', async () => {
 })
 
 test('어르신 앱의 긴급 요청은 보호자에게 한 번만 "긴급"으로 보낸다', async () => {
-  db.store.set(`families/${CODE}/alerts/a-9`, {
-    id: 'a-9',
-    kind: 'sos',
-    reason: '김영수 님이 긴급 도움 요청 버튼을 누르셨어요.',
-  })
+  db.store.set(`families/${CODE}/alerts/a-9`, { id: 'a-9', kind: 'sos', reason: '김영수 님이 긴급 도움 요청 버튼을 누르셨어요.' })
   const first = await sendAlertPush(db as unknown as Firestore, fcm as unknown as Messaging, CODE, 'a-9')
   const again = await sendAlertPush(db as unknown as Firestore, fcm as unknown as Messaging, CODE, 'a-9')
   assert.deepEqual(first, { sent: 1, skipped: false })
