@@ -4,6 +4,7 @@ import {
   Plus,
   Settings2,
   Smartphone,
+  Pencil,
   Trash2,
   UserRoundCheck,
   Volume2,
@@ -18,13 +19,14 @@ import {
   SOSButton,
   WakeUpCard,
 } from '@/features/care/components/CareWidgets'
-import { BigButton, InfoCard, Modal, PageHeader, SelectField, TextField } from '@/shared/ui'
-import { CHANNEL_LABEL, requestPushPermission } from '@/features/care/hooks/useCareWatcher'
+import { BigButton, InfoCard, Modal, PageHeader, SelectField, StatusNote, TextField } from '@/shared/ui'
+import { PushPermission } from '@/features/care/components/PushPermission'
+import { CHANNEL_LABEL } from '@/features/care/hooks/useCareWatcher'
 import { useCareStore, type AlertChannel } from '@/features/care/store/useCareStore'
 import { useSettingsStore } from '@/shared/store/useSettingsStore'
 import { speak } from '@/shared/lib/notify'
 import { useUserStore } from '@/features/auth/store/useUserStore'
-import type { MedSlot } from '@/features/care/types'
+import type { MedSlot, Medication } from '@/features/care/types'
 
 const SLOTS: MedSlot[] = ['아침', '점심', '저녁', '취침 전']
 const SLOT_TIME: Record<MedSlot, string> = { 아침: '08:00', 점심: '12:30', 저녁: '18:30', '취침 전': '21:30' }
@@ -34,35 +36,49 @@ const CHANNEL_ICON: Record<AlertChannel, typeof BellRing> = {
   sms: Smartphone,
 }
 
+const EMPTY_FORM = { name: '', slot: '아침' as MedSlot, time: '08:00', memo: '' }
+
 export function CarePage() {
   const care = useCareStore()
   const profile = useUserStore((s) => s.profile)
-  const showToast = useSettingsStore((s) => s.showToast)
+  const [medNote, setMedNote] = useState<string | null>(null) // 약 추가·수정·삭제 결과 (닫기 전까지 남음)
   const voiceGuide = useSettingsStore((s) => s.voiceGuide)
   const setVoiceGuide = useSettingsStore((s) => s.setVoiceGuide)
   const [addOpen, setAddOpen] = useState(false)
   const [manage, setManage] = useState(false)
-  const [form, setForm] = useState({ name: '', slot: '아침' as MedSlot, time: '08:00', memo: '' })
+  const [form, setForm] = useState(EMPTY_FORM)
+  const [editId, setEditId] = useState<string | null>(null) // null 이면 새 약 추가
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const deleteMed = care.medications.find((m) => m.id === deleteId)
 
-  const enablePush = async () => {
-    const res = await requestPushPermission()
-    if (res === 'granted') {
-      if (!care.channels.includes('webpush')) care.toggleChannel('webpush')
-      showToast('웹 푸시 알림이 켜졌어요.', 'success')
-    } else if (res === 'unsupported') showToast('이 브라우저는 웹 푸시를 지원하지 않아요.', 'warn')
-    else showToast('알림 권한이 거부되었어요. 브라우저 설정에서 허용해 주세요.', 'warn')
+  const openAdd = () => {
+    setEditId(null)
+    setForm(EMPTY_FORM)
+    setAddOpen(true)
+  }
+  const openEdit = (m: Medication) => {
+    setEditId(m.id)
+    setForm({ name: m.name, slot: m.slot, time: m.time, memo: m.memo ?? '' })
+    setAddOpen(true)
   }
 
   const submit = () => {
     if (!form.name.trim()) return
-    care.addMedication({
+    const med = {
       name: form.name.trim(),
       slot: form.slot,
       time: form.time,
       memo: form.memo.trim() || undefined,
-    })
-    showToast('새 약을 추가했어요.', 'success')
-    setForm({ name: '', slot: '아침', time: '08:00', memo: '' })
+    }
+    if (editId) {
+      care.updateMedication(editId, med)
+      setMedNote(`${med.name} 정보를 고쳤어요. (${med.slot} ${med.time})`)
+    } else {
+      care.addMedication(med)
+      setMedNote(`${med.name}을(를) 추가했어요. (${med.slot} ${med.time})`)
+    }
+    setForm(EMPTY_FORM)
+    setEditId(null)
     setAddOpen(false)
   }
 
@@ -83,6 +99,11 @@ export function CarePage() {
               </BigButton>
             }
           >
+            {medNote && (
+              <StatusNote className="mb-4" onClose={() => setMedNote(null)}>
+                {medNote}
+              </StatusNote>
+            )}
             <div className="mb-4">
               <MedProgress />
             </div>
@@ -93,14 +114,20 @@ export function CarePage() {
                     key={m.id}
                     className="flex items-center gap-3 rounded-2xl bg-white/80 p-3 ring-1 ring-brand-100"
                   >
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-lg font-bold">{m.name}</span>
-                      <span className="text-sm text-ink-soft">
-                        {m.slot} · {m.time}
-                      </span>
-                    </span>
                     <button
-                      onClick={() => care.removeMedication(m.id)}
+                      onClick={() => openEdit(m)}
+                      className="min-h-12 min-w-0 flex-1 rounded-xl text-left hover:bg-brand-50"
+                      aria-label={`${m.name} 고치기`}
+                    >
+                      <span className="block text-lg font-bold">{m.name}</span>
+                      <span className="flex items-center gap-1 text-sm text-ink-soft">
+                        {m.slot} · {m.time}
+                        <Pencil className="ml-1 size-4" aria-hidden />
+                        고치기
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => setDeleteId(m.id)}
                       className="grid size-12 place-items-center rounded-xl text-rose-500 hover:bg-rose-50"
                       aria-label={`${m.name} 삭제`}
                     >
@@ -112,13 +139,7 @@ export function CarePage() {
             ) : (
               <MedChecklist />
             )}
-            <BigButton
-              variant="outline"
-              fullWidth
-              icon={<Plus />}
-              className="mt-4"
-              onClick={() => setAddOpen(true)}
-            >
+            <BigButton variant="outline" fullWidth icon={<Plus />} className="mt-4" onClick={openAdd}>
               약 추가하기
             </BigButton>
           </InfoCard>
@@ -181,16 +202,11 @@ export function CarePage() {
                 )
               })}
             </div>
-            <BigButton
-              variant="soft"
-              fullWidth
-              size="md"
-              icon={<BellRing />}
-              className="mt-3"
-              onClick={enablePush}
-            >
-              이 기기에서 웹 푸시 허용하기
-            </BigButton>
+            <PushPermission
+              onGranted={() => {
+                if (!care.channels.includes('webpush')) care.toggleChannel('webpush')
+              }}
+            />
             <button
               onClick={() => {
                 const next = !voiceGuide
@@ -212,7 +228,9 @@ export function CarePage() {
                 )}
                 약·기상 시간 음성 안내
               </span>
-              <span className="rounded-full bg-white px-3 py-1 text-sm">{voiceGuide ? '켜짐' : '꺼짐'}</span>
+              <span className="shrink-0 whitespace-nowrap rounded-full bg-white px-3 py-1 text-sm">
+                {voiceGuide ? '켜짐' : '꺼짐'}
+              </span>
             </button>
           </InfoCard>
 
@@ -259,7 +277,11 @@ export function CarePage() {
         </div>
       </div>
 
-      <Modal open={addOpen} onClose={() => setAddOpen(false)} title="약 추가하기">
+      <Modal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        title={editId ? '약 정보 고치기' : '약 추가하기'}
+      >
         <form
           className="space-y-4"
           onSubmit={(e) => {
@@ -296,9 +318,35 @@ export function CarePage() {
             placeholder="예: 식후 30분"
           />
           <BigButton type="submit" fullWidth size="xl" disabled={!form.name.trim()}>
-            추가하기
+            {editId ? '저장하기' : '추가하기'}
           </BigButton>
         </form>
+      </Modal>
+
+      <Modal open={!!deleteMed} onClose={() => setDeleteId(null)} title="이 약을 목록에서 지울까요?">
+        <p className="mb-6 text-lg text-ink-soft">
+          <b className="text-ink">{deleteMed?.name}</b> ({deleteMed?.slot} {deleteMed?.time})을(를) 지우면 이
+          약의 복약 안내와 보호자 알림도 멈춰요.
+        </p>
+        <div className="space-y-3">
+          <BigButton fullWidth size="lg" onClick={() => setDeleteId(null)}>
+            아니요
+          </BigButton>
+          <BigButton
+            fullWidth
+            size="lg"
+            variant="danger"
+            onClick={() => {
+              if (deleteMed) {
+                care.removeMedication(deleteMed.id)
+                setMedNote(`${deleteMed.name}을(를) 목록에서 지웠어요.`)
+              }
+              setDeleteId(null)
+            }}
+          >
+            네, 지울게요
+          </BigButton>
+        </div>
       </Modal>
     </div>
   )

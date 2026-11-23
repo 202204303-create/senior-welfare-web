@@ -1,6 +1,5 @@
 import { AlertTriangle, CheckCircle2, Info, RotateCw, X } from 'lucide-react'
 import { useEffect, type ReactNode } from 'react'
-import { useSettingsStore } from '@/shared/store/useSettingsStore'
 import { BigButton } from '@/shared/ui/BigButton'
 
 export function Skeleton({ className = '' }: { className?: string }) {
@@ -67,42 +66,47 @@ export function EmptyState({
   )
 }
 
-const TOAST_TONE = {
-  info: { cls: 'bg-brand-700', Icon: Info },
-  success: { cls: 'bg-emerald-600', Icon: CheckCircle2 },
-  warn: { cls: 'bg-amber-600', Icon: AlertTriangle },
+const NOTE_TONE = {
+  info: { cls: 'bg-brand-50 text-brand-800 ring-brand-200', Icon: Info },
+  success: { cls: 'bg-emerald-50 text-emerald-800 ring-emerald-200', Icon: CheckCircle2 },
+  warn: { cls: 'bg-amber-50 text-amber-900 ring-amber-200', Icon: AlertTriangle },
 }
 
-export function Toast() {
-  const toast = useSettingsStore((s) => s.toast)
-  const hide = useSettingsStore((s) => s.hideToast)
-
-  useEffect(() => {
-    if (!toast) return
-    const t = setTimeout(hide, 4500)
-    return () => clearTimeout(t)
-  }, [toast, hide])
-
-  if (!toast) return null
-  const { cls, Icon } = TOAST_TONE[toast.tone]
+/**
+ * 동작 결과를 그 자리에 남겨 두는 확인 문구입니다.
+ * 몇 초 뒤 사라지는 토스트는 어르신이 놓치기 쉬워 쓰지 않습니다. (교수님 피드백)
+ * 다음 동작을 하거나 사용자가 닫기 전까지 계속 보입니다.
+ */
+export function StatusNote({
+  tone = 'success',
+  children,
+  onClose,
+  className = '',
+}: {
+  tone?: keyof typeof NOTE_TONE
+  children: ReactNode
+  onClose?: () => void
+  className?: string
+}) {
+  const { cls, Icon } = NOTE_TONE[tone]
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-28 z-50 flex justify-center px-4 md:bottom-8">
-      <div
-        key={toast.id}
-        role="status"
-        aria-live="polite"
-        className={`pointer-events-auto flex max-w-lg animate-fade-up items-center gap-3 rounded-2xl px-5 py-4 text-base font-semibold text-white shadow-glass-lg ${cls}`}
-      >
-        <Icon className="size-6 shrink-0" aria-hidden />
-        <span className="flex-1">{toast.message}</span>
+    <div
+      role="status"
+      aria-live="polite"
+      className={`flex items-start gap-2.5 rounded-2xl px-4 py-3 text-base font-semibold ring-1 ${cls} ${className}`}
+    >
+      <Icon className="mt-0.5 size-5 shrink-0" aria-hidden />
+      <span className="min-w-0 flex-1">{children}</span>
+      {onClose && (
         <button
-          onClick={hide}
-          aria-label="알림 닫기"
-          className="grid size-9 place-items-center rounded-lg hover:bg-white/15"
+          type="button"
+          onClick={onClose}
+          aria-label="확인 문구 닫기"
+          className="-my-1 -mr-2 grid size-10 shrink-0 place-items-center rounded-lg hover:bg-black/5"
         >
-          <X className="size-5" />
+          <X className="size-5" aria-hidden />
         </button>
-      </div>
+      )}
     </div>
   )
 }
