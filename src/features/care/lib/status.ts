@@ -6,4 +6,5 @@ export const STATUS_STYLE: Record<MedStatus, { label: string; cls: string }> = {
   due: { label: '드실 시간', cls: 'bg-brand-600 text-white' },
   upcoming: { label: '예정', cls: 'bg-slate-100 text-slate-600' },
   missed: { label: '놓침', cls: 'bg-rose-100 text-rose-700' },
+  later: { label: '내일부터', cls: 'bg-slate-100 text-slate-600' },
 }

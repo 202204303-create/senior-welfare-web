@@ -39,7 +39,8 @@ interface CareState {
 
   checkWakeUp: () => void
   toggleMed: (medId: string) => void
-  addMedication: (m: Omit<Medication, 'id'>) => void
+  addMedication: (m: Omit<Medication, 'id' | 'createdAt'>) => void
+  updateMedication: (id: string, patch: Omit<Medication, 'id' | 'createdAt'>) => void
   removeMedication: (id: string) => void
   setWakeUpDeadline: (t: string) => void
   toggleChannel: (c: AlertChannel) => void
@@ -55,6 +56,8 @@ export const todayKey = (d = new Date()) => {
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
 }
+
+const sortByTime = (list: Medication[]) => [...list].sort((a, b) => a.time.localeCompare(b.time))
 
 /** 알림 키로 종류를 정합니다. */
 export function alertKind(key: string): AlertKind {
@@ -110,8 +113,25 @@ export const useCareStore = create<CareState>()(
 
       addMedication: (m) =>
         set((s) => ({
-          medications: [...s.medications, { ...m, id: `m-${Date.now()}` }].sort((a, b) =>
-            a.time.localeCompare(b.time),
+          medications: sortByTime([
+            ...s.medications,
+            { ...m, id: `m-${Date.now()}`, createdAt: new Date().toISOString() },
+          ]),
+        })),
+
+      // 시간을 바꾸면 '오늘 이미 지난 시간'으로 바뀌어도 잘못 알리지 않도록 등록 시각을 새로 기록합니다.
+      updateMedication: (id, patch) =>
+        set((s) => ({
+          medications: sortByTime(
+            s.medications.map((m) =>
+              m.id !== id
+                ? m
+                : {
+                    ...m,
+                    ...patch,
+                    createdAt: patch.time !== m.time ? new Date().toISOString() : m.createdAt,
+                  },
+            ),
           ),
         })),
 

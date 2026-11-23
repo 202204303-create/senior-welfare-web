@@ -71,6 +71,8 @@ const saveNotified = (code: string, keys: string[]) => {
 }
 
 const HISTORY_DAYS = 7
+/** 보호자 화면이 직접 경고하기 전에 어르신 기기의 알림이 도착하기를 기다리는 시간 */
+const GUARDIAN_NOTIFY_DELAY_MS = 5000
 
 const fmtTime = (iso: string) =>
   new Date(iso).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })
@@ -192,15 +194,24 @@ function GuardianDashboard({ code, onChangeCode }: { code: string; onChangeCode:
   )
 
   // 어르신 앱이 꺼져 있어 어르신 기기에서 알림이 오지 않은 경우, 보호자 화면이 직접 알립니다.
+  // 화면을 연 직후에는 알림 목록이 잠깐 비어 있다가 도착하므로(Firestore 캐시 → 서버),
+  // 몇 초 기다린 뒤 최신 알림 목록으로 다시 확인하고 알립니다.
+  const alertsRef = useRef(alerts)
   useEffect(() => {
-    if (!family || !seen.current) return
-    const done = readNotified(code)
-    const reported = new Set(alerts.map((a) => a.key))
-    const fresh = issues.filter((i) => !done.includes(i.key) && !reported.has(i.key))
-    if (!fresh.length) return
-    fresh.forEach((i) => notify(i.text))
-    saveNotified(code, [...done, ...fresh.map((i) => i.key)])
-  }, [issues, alerts, family, code])
+    alertsRef.current = alerts
+  }, [alerts])
+  useEffect(() => {
+    if (!family || !seen.current || issues.length === 0) return
+    const timer = setTimeout(() => {
+      const done = readNotified(code)
+      const reported = new Set(alertsRef.current.map((a) => a.key))
+      const fresh = issues.filter((i) => !done.includes(i.key) && !reported.has(i.key))
+      if (!fresh.length) return
+      fresh.forEach((i) => notify(i.text))
+      saveNotified(code, [...done, ...fresh.map((i) => i.key)])
+    }, GUARDIAN_NOTIFY_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [issues, family, code])
 
   const ack = async (a: AlertLog) => {
     if (!family) return
