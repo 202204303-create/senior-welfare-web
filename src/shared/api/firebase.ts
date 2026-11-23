@@ -32,6 +32,12 @@ export const isFirebaseEnabled =
 let app: FirebaseApp | null = null
 let db: Firestore | null = null
 
+/** Firebase 앱. Firebase 가 꺼져 있으면 null */
+export function getFirebaseApp(): FirebaseApp | null {
+  getDb()
+  return app
+}
+
 /** Firestore 인스턴스. Firebase 가 꺼져 있으면 null */
 export function getDb(): Firestore | null {
   if (!isFirebaseEnabled) return null

@@ -229,6 +229,8 @@ export function CarePage() {
                   카카오톡·문자 발송은 준비 중이에요. 지금은 휴대폰 알림으로 알려 드려요.
                 </p>
                 <PushPermission
+                  role="elder"
+                  familyCode={care.familyCode}
                   onGranted={() => {
                     if (!care.channels.includes('webpush')) care.toggleChannel('webpush')
                   }}

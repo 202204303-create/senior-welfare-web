@@ -431,7 +431,7 @@ function GuardianDashboard({ code, onChangeCode }: { code: string; onChangeCode:
       {/* 알림 */}
       <InfoCard title="받은 알림" icon={<BellRing />}>
         <div className="mb-4">
-          <PushPermission />
+          <PushPermission role="guardian" familyCode={code} />
         </div>
         {alerts.length === 0 ? (
           <p className="rounded-2xl bg-white/70 p-4 text-center text-base text-ink-soft">
