@@ -1,9 +1,92 @@
-# 늘봄 · 시니어 맞춤형 통합 복지 웹 플랫폼 (Frontend)
+# 늘봄 · 시니어 맞춤형 통합 복지 웹 플랫폼
 
-React + Vite + TypeScript + Tailwind CSS v4 + Zustand + React Query 기반 반응형(Mobile-first) 웹입니다.
-팀 작업 규칙은 [CONTRIBUTING.md](CONTRIBUTING.md)를 참고하세요.
+> 혼자 사는 어르신의 **안부·복약을 보호자가 함께 챙기고**, 일자리·복지시설·복지 혜택을 **한곳에서 쉽게 찾는** 모바일 우선 웹앱(PWA)입니다.
 
-## 진행 상황
+| | |
+| --- | --- |
+| 🌐 **배포 주소** | https://senior-welfare-web.vercel.app |
+| 📱 **설치** | 안드로이드 크롬: 설치 배너의 "앱 설치하기" · 아이폰: 사파리에서 "공유 → 홈 화면에 추가" |
+| 👥 **보호자 화면** | `/guardian` (로그인 불필요, 어르신이 보낸 링크나 6자리 가족 코드로 연결) |
+| 📋 **팀 작업 규칙** | [CONTRIBUTING.md](CONTRIBUTING.md) |
+
+## 1. 만드는 이유
+
+- 혼자 사는 어르신은 약을 거르거나 몸이 안 좋아도 알리기 어렵고, 보호자는 매번 전화로 확인해야 합니다.
+- 일자리·복지시설·복지 혜택 정보는 흩어져 있고 화면이 작고 복잡해 어르신이 혼자 찾기 어렵습니다.
+- 그래서 **핵심은 안부·복약 확인**이고, 일자리·시설 지도·맞춤 혜택은 **확장 기능**으로 함께 제공합니다.
+
+## 2. 구현할 기능
+
+### 핵심 기능: 안부·복약 (Firebase 로 실제 서버 저장)
+
+| 기능 | 설명 | 상태 |
+| --- | --- | --- |
+| 기상 확인 | 어르신이 "일어났어요"를 누르면 서버에 기록, 마감까지 안 누르면 보호자에게 알림 | ✅ |
+| 복약 관리 | 약 등록·수정·삭제, 시간대별 "먹었어요" 체크, 복용 기록 취소 | ✅ |
+| 어르신 안내 | 복약·기상 시각에 화면 배너, 음성, 휴대폰 알림으로 안내 (지워지지 않는 알림) | ✅ |
+| 보호자 화면 | 가족 코드로 오늘의 기상·복약·알림을 실시간 확인, 최근 7일 기록 | ✅ |
+| 미확인 감지 | 보호자 화면이 서버 기록만 보고 직접 판단 (어르신 앱이 꺼져 있어도 경고), 어르신 앱 마지막 사용 시각 표시 | ✅ |
+| 긴급 도움 요청 | SOS 버튼으로 보호자 알림, 119 전화 연결 | ✅ |
+| 보호자 확인 응답 | 보호자가 "확인했어요"를 누르면 어르신 화면에 표시 | ✅ |
+| 보호자 링크 보내기 | 링크만 누르면 코드 입력 없이 연결 (공유 창·복사) | ✅ |
+| 보호자 휴대폰 푸시 | 화면을 꺼 둬도 알림 받기 (FCM + 서비스 워커 `push`) | ⬜ 예정 |
+| 앱·보호자 화면이 모두 꺼졌을 때 감지 | 서버 예약 실행 (Cloud Functions) | ⬜ 예정 |
+| 카카오톡·문자 알림 | 외부 발송 업체 필요 | ⬜ 준비 중 (화면에 "준비 중" 표시) |
+
+### 확장 기능 (현재 Mock 데이터)
+
+| 기능 | 설명 | 상태 |
+| --- | --- | --- |
+| 일자리·프로그램 | 음성 검색, 지역·분류 필터, D-day, 신청 내역 | ✅ 화면 / Mock 데이터 |
+| 원클릭 지원서 | 내 정보로 지원서 자동 완성 후 신청 | ✅ 화면 / 서버 저장 없음 |
+| 복지 시설 지도 | 내 위치, 반경 필터(1·2·3km), 종류별 마커, 전화 연결 (카카오맵 키 없으면 간이 지도) | ✅ 화면 / Mock 데이터 |
+| 맞춤 복지 혜택 | 거주지·나이·소득으로 받을 수 있는 혜택만 골라 보기 | ✅ 화면 / Mock 데이터 |
+| 내 정보 | 프로필·보호자 정보, 글자 크기(보통·크게·아주 크게), 음성 안내 설정 | ✅ (기기에만 저장) |
+| 간편 로그인 | 카카오·네이버 (키 없으면 데모 로그인) | 🔶 콜백·토큰 교환 미구현 |
+| 홈 화면 설치 (PWA) | 설치 배너, 오프라인에서 화면 열기, 앱 아이콘 | ✅ |
+
+### 시니어 친화 설계
+
+- 큰 글씨(기본 18px)와 48px 이상 터치 영역, 글자 크기 3단계
+- 색만으로 구분하지 않고 글자·아이콘을 함께 사용, 아이콘 버튼에는 `aria-label`
+- 음성 입력(검색)과 음성 안내(복약·기상), 처음 사용 3단계 안내
+- 로딩·오류·빈 결과 화면을 항상 함께 제공
+
+## 3. 기술 스택
+
+| 구분 | 사용 기술 |
+| --- | --- |
+| 프론트엔드 | React 19, TypeScript, Vite |
+| 스타일 | Tailwind CSS v4, lucide-react 아이콘 |
+| 상태·데이터 | Zustand(+persist), TanStack React Query |
+| 라우팅 | React Router |
+| 서버(BaaS) | Firebase Firestore(서울) + 익명 인증, 보안 규칙 `firestore.rules` |
+| PWA | vite-plugin-pwa(매니페스트·서비스 워커·오프라인 캐시) |
+| 브라우저 기능 | Web Speech(음성 인식·합성), Notification(서비스 워커), Geolocation, Web Share |
+| 지도 | 카카오맵 JavaScript SDK (키 없으면 자체 간이 지도) |
+| 배포 | Vercel (GitHub `main` 연결, 자동 배포) |
+| 개발 도구 | oxlint, Prettier, TypeScript 타입 검사 |
+
+## 4. 서비스 연결
+
+```
+어르신 휴대폰 (PWA) ──저장──▶  Firebase Firestore  ◀──실시간 구독──  보호자 휴대폰 (/guardian)
+      │  익명 로그인 + 가족 코드(6자리)                                 │  보호자가 "확인했어요" 응답 ──▶ 어르신 화면에 표시
+      ▼
+ GitHub (main) ──push/merge──▶ Vercel 자동 배포 ──▶ https://senior-welfare-web.vercel.app
+```
+
+| 연결 | 상태 | 비고 |
+| --- | --- | --- |
+| GitHub → Vercel | ✅ 연결됨 | `main` 에 합치면 자동 배포, PR 마다 미리보기 주소 |
+| Firebase `neulbom-c7096` | ✅ 연결됨 | 설정값이 `src/shared/api/firebase.ts` 에 있어 `.env` 없이 동작 |
+| PWA 설치·오프라인 | ✅ 동작 | 아이폰은 홈 화면에 추가한 앱에서만 알림 가능 |
+| 카카오맵 | ⬜ 키 없음 | `VITE_KAKAO_MAP_KEY` 를 넣으면 실제 지도 |
+| 카카오·네이버 로그인 | ⬜ 키·서버 없음 | 현재 데모 로그인 |
+| 일자리·시설·혜택 API | ⬜ Mock | `VITE_USE_MOCK=false` + `VITE_API_BASE_URL` 로 전환, 공공데이터 사용 여부는 팀 결정 필요 |
+| FCM 푸시 / Cloud Functions | ⬜ 미연결 | Blaze 요금제 필요 여부 팀 결정 |
+
+## 5. 진행 상황 (팀 기록)
 
 > 작업을 마치면 아래 **작업 기록** 표 맨 아래에 한 줄 추가하고, **남은 할 일**의 체크박스를 고쳐 주세요. 작성 방법은 이 파트 맨 끝에 있습니다.
 
@@ -35,6 +118,7 @@ React + Vite + TypeScript + Tailwind CSS v4 + Zustand + React Query 기반 반�
 | 11/23 | k367604-beep (김민준) | 교수님 피드백: 토스트 제거 → **지워지지 않는 알림**으로 교체. 화면 위 알림 카드('확인했어요'를 눌러야 사라짐, 새로고침해도 유지), 휴대폰 알림(PWA)은 직접 닫을 때까지 남게, 약·기상 안내 배너와 완료 줄, 동작 결과는 그 자리에 확인 문구, 알림 권한 상태 상시 표시, 보호자 탭 제목에 미확인 개수 | #11 |
 | 11/23 | k367604-beep (김민준) | UI/UX 점검 수정: 기상 카드가 마감 뒤엔 '보호자께 알렸어요'로 안내, 보호자 화면 버튼 이름 구분('알림 닫기' / '확인했다고 어르신께 알리기'), 홈 화면 중복 배너 제거, 카카오톡·문자는 '준비 중'(기록에도 실제로 보낸 방식만), **보호자에게 링크 보내기**(누르면 코드 입력 없이 연결), '웹 푸시'→'휴대폰 알림', 어르신 휴대폰에 보호자용 알림이 뜨던 문제 수정 | #15 |
 | 11/23 | k367604-beep (김민준) | 처음 쓰는 사람도 쉽게: 홈 맨 위 **처음 사용 3단계 안내**(일어났어요·먹었어요·보호자 연결, 하면 체크), 긴급 버튼을 '오늘의 약' 바로 아래로, 안 먹은 약에 '먹었어요' 표시, 매일 안 쓰는 알림 설정은 접어 둠, 보호자 코드 화면에 '받은 링크를 누르면 바로 연결' 안내 | #16 |
+| 11/23 | 202204303-create | Vercel 자동 배포 연결 확인(main 에 합치면 자동 배포), README를 프로젝트 소개·구현 기능·기술 스택·서비스 연결·폴더 구조 중심으로 정리 | - |
 
 ### 남은 할 일
 
@@ -64,68 +148,82 @@ React + Vite + TypeScript + Tailwind CSS v4 + Zustand + React Query 기반 반�
 4. 새로 생긴 할 일은 해당 기한 아래에 `- [ ] 할 일 — 담당:` 형식으로 추가합니다.
 5. 수업 일정의 상태는 ✅ 완료 / 🔄 진행 중 / ⬜ 예정 중 하나로 바꿉니다.
 
-## 실행
+## 6. 화면 구성
+
+| 경로 | 화면 | 폴더 | 비고 |
+| --- | --- | --- | --- |
+| `/login` | 간편 로그인 | `features/auth` | 카카오·네이버 (키 없으면 데모), 로그인 없이 둘러보기 |
+| `/` | 메인 대시보드 | `features/dashboard` | 처음 사용 안내, 기상 확인, 오늘의 약, 긴급 도움, 추천 공고 |
+| `/care` | 안부·복약 관리 | `features/care` | 복약 체크·편집, 알림 설정, 보호자 연결 코드·링크 |
+| `/guardian` | 보호자 화면 | `features/care` | 가족 코드로 실시간 확인, 로그인 불필요 |
+| `/jobs` | 일자리·프로그램 | `features/jobs` | 음성 검색, 필터, 신청 내역 |
+| `/jobs/:id/apply` | 원클릭 지원서 | `features/jobs` | 프로필 자동 완성 |
+| `/map` | 복지 시설 지도 | `features/map` | 내 위치, 반경 필터, 마커 |
+| `/policies` | 맞춤 복지 혜택 | `features/policies` | 거주지·나이·소득 필터링 |
+| `/my` | 내 정보 | `features/dashboard` | 프로필·보호자, 글자 크기, 음성 안내 |
+
+## 7. 폴더 구조
+
+기능(feature) 단위로 나누고, 한 사람이 한 기능 폴더를 맡습니다. 자세한 규칙은 [CONTRIBUTING.md](CONTRIBUTING.md)를 보세요.
+
+```
+src/
+  app/        앱 진입점: App(라우트), providers
+  features/
+    auth/       로그인, 소셜 OAuth, 사용자 프로필 스토어
+    care/       안부·복약, 보호자 화면, Firebase 동기화, 알림
+    dashboard/  홈 대시보드, 내 정보
+    jobs/       일자리·프로그램, 원클릭 지원서
+    map/        복지 시설 지도
+    policies/   맞춤 복지 혜택
+  shared/     두 곳 이상에서 쓰는 것: ui, layout, hooks, api(firebase·http), store, lib
+public/       PWA 아이콘, 파비콘
+firestore.rules   Firestore 보안 규칙
+```
+
+## 8. 실행과 환경 변수
 
 ```bash
 npm install
-npm run dev        # 개발 서버 http://localhost:5173
-npm run build      # 타입 검사 + 프로덕션 빌드 (dist/)
-npm run preview    # 빌드 결과 미리보기
-npm run format     # Prettier 로 코드 포맷
-npm run lint       # oxlint
+npm run dev          # 개발 서버 http://localhost:5173
+npm run build        # 타입 검사 + 프로덕션 빌드 (dist/)
+npm run preview      # 빌드 결과 미리보기 (PWA·서비스 워커는 이쪽에서 확인)
+npm run format       # Prettier 로 코드 포맷
+npm run lint         # oxlint
 ```
 
-`.env.example`을 `.env`로 복사해 키를 넣으면 실제 카카오맵과 소셜 로그인이 동작합니다.
-키가 없으면 자체 간이 지도와 데모 로그인으로 동작합니다.
+`.env.example` 을 `.env` 로 복사해 필요한 값만 넣습니다. 모두 비워 두어도 동작합니다.
 
-## 화면 구성
+| 변수 | 용도 | 비워 두면 |
+| --- | --- | --- |
+| `VITE_USE_MOCK` | `false` 면 일자리·시설·혜택을 실제 API 로 호출 | Mock 데이터 |
+| `VITE_API_BASE_URL` | 위 API 주소 | - |
+| `VITE_KAKAO_MAP_KEY` | 카카오맵 JavaScript 키 | 자체 간이 지도 |
+| `VITE_KAKAO_REST_KEY`, `VITE_NAVER_CLIENT_ID` | 소셜 로그인 | 데모 로그인 |
+| `VITE_FIREBASE_*` | 다른 Firebase 프로젝트를 쓸 때 | 팀 프로젝트(`neulbom-c7096`) |
+| `VITE_FIREBASE_DISABLED` | `true` 면 서버 없이 기기에만 저장 | 서버 저장 사용 |
 
-| 경로 | 화면 | 폴더 | 기획서 기능 |
-| --- | --- | --- | --- |
-| `/login` | 간편 로그인 | `features/auth` | 카카오·네이버 소셜 로그인 |
-| `/` | 메인 대시보드 | `features/dashboard` | 기상 확인, 오늘의 약, 추천 공고, 긴급 도움 |
-| `/my` | 내 정보 | `features/dashboard` | 프로필·보호자 정보, 글자 크기 |
-| `/care` | 안부·복약 관리 | `features/care` | 복약 체크, 미확인 시 보호자·복지사 알림, 보호자 연결 코드 |
-| `/guardian` | 보호자 화면 | `features/care` | 가족 코드로 어르신의 오늘 기상·복약·알림을 실시간 확인 (로그인 불필요) |
-| `/jobs` | 일자리·프로그램 | `features/jobs` | 음성 검색, 필터 칩, 신청 내역 |
-| `/jobs/:id/apply` | 원클릭 지원서 | `features/jobs` | 프로필 기반 자동 완성 |
-| `/map` | 복지 시설 지도 | `features/map` | Geolocation, 반경 필터, 커스텀 마커 |
-| `/policies` | 맞춤 복지 혜택 | `features/policies` | 거주지·연령·소득 필터링 |
+## 9. 안부·복약 데이터와 사용 방법
 
-## 서버 저장과 보호자 화면 (Firebase)
+1. 어르신 기기의 `안부·복약` 화면에 6자리 **보호자 연결 코드**가 나옵니다.
+2. **"보호자에게 링크 보내기"** 를 누르면 링크를 누르는 것만으로 보호자가 연결됩니다. (코드를 직접 입력해도 됩니다.)
+3. 보호자는 `/guardian` 에서 오늘의 기상·복약, 알림, 최근 7일 기록을 실시간으로 봅니다.
 
-안부·복약 기록은 Firebase(Firestore)에 저장되어 보호자가 다른 기기에서 실시간으로 확인합니다.
+데이터 구조: `families/{코드}`(이름·약 목록·알림 기준·마지막 사용 시각), `families/{코드}/days/{날짜}`(기상·복용 기록), `families/{코드}/alerts/{id}`(알림 기록, 보호자 확인)
 
-1. [Firebase 콘솔](https://console.firebase.google.com)에서 프로젝트를 만들고 **웹 앱**을 추가합니다.
-2. **Firestore Database**를 만들고, **Authentication > 익명** 로그인을 켭니다.
-3. Firestore **규칙** 탭에 저장소의 `firestore.rules` 내용을 붙여 넣고 게시합니다.
-4. 팀 프로젝트(`neulbom-c7096`) 설정값은 `src/shared/api/firebase.ts`에 들어 있어 `.env` 없이 바로 동작합니다. 다른 프로젝트를 쓸 때만 `.env`의 `VITE_FIREBASE_*`에 값을 넣습니다.
+Firebase 를 새로 만들 때: 콘솔에서 웹 앱 추가 → Firestore 생성 → **Authentication > 익명** 켜기 → `firestore.rules` 내용을 규칙 탭에 게시 → 설정값을 `.env` 의 `VITE_FIREBASE_*` 에 입력.
 
-사용 방법: 어르신 기기의 `안부·복약` 화면에 6자리 **보호자 연결 코드**가 나옵니다. 보호자는 `/guardian`에서 이 코드를 입력합니다.
-`.env`에 `VITE_FIREBASE_DISABLED=true`를 넣으면 서버 없이 이 기기(브라우저)에만 저장하고, 보호자 화면은 "서버 연결이 설정되지 않았어요"를 보여 줍니다.
+## 10. 알려진 한계
 
-데이터 구조: `families/{코드}`(이름·약 목록·알림 기준), `families/{코드}/days/{날짜}`(기상·복용 기록), `families/{코드}/alerts/{id}`(알림 기록)
+- 보호자 화면과 어르신 앱이 모두 꺼져 있으면 미확인을 감지하지 못합니다. (서버 예약 실행 필요)
+- 보호자 휴대폰 푸시(FCM)는 아직 없어서, 보호자 화면을 열어 두었을 때만 알림이 뜹니다.
+- 가족 코드(6자리)를 아는 사람은 기록을 볼 수 있습니다. 프로토타입 수준의 보호이며, 서비스 전에는 보호자 계정 인증이 필요합니다.
+- 일자리·시설·혜택은 Mock 데이터이고 지원 내역·프로필은 기기(브라우저)에만 저장됩니다.
+- 아이폰은 홈 화면에 추가한 앱에서만 알림을 받을 수 있습니다. (iOS 16.4 이상)
+- 서비스 워커·설치는 HTTPS(또는 localhost)에서만 동작합니다. `npm run dev` 에서는 꺼져 있습니다.
 
-한계: 미확인 판단은 어르신 앱 또는 보호자 화면 중 하나가 열려 있을 때 이루어집니다. 보호자 화면이 꺼져 있을 때도 휴대폰으로 알림을 보내려면 FCM(Firebase Cloud Messaging)과 서버 함수가 추가로 필요합니다.
+## 11. 배포
 
-## 백엔드 연동
-
-- `.env`에 `VITE_USE_MOCK=false`와 `VITE_API_BASE_URL`을 넣으면 각 기능의 `api/*.ts`가 실제 API를 호출합니다.
-- 기대하는 엔드포인트: `GET /jobs`, `GET /jobs/:id`, `POST /applications`, `GET /facilities`, `GET /policies`
-- 카카오톡·SMS 알림 발송은 백엔드에서 처리해야 합니다. 현재는 `features/care/hooks/useCareWatcher.ts`가 발송 요청을 기록하고 웹 푸시만 직접 띄웁니다.
-- 소셜 로그인 콜백 `/auth/{provider}/callback`의 토큰 교환은 백엔드에서 처리합니다.
-
-## PWA (홈 화면 설치)
-
-- `vite-plugin-pwa`가 빌드 때 매니페스트와 서비스 워커(`sw.js`)를 만듭니다. 설정은 `vite.config.ts`에 있습니다.
-- 안드로이드 크롬에서는 앱 설치 배너가 뜨고, 아이폰 사파리에서는 "공유 → 홈 화면에 추가" 안내가 뜹니다. (`shared/ui/InstallBanner.tsx`)
-- 서비스 워커는 HTTPS(또는 localhost)에서만 동작합니다. 개발 서버(`npm run dev`)에서는 꺼져 있으므로 `npm run build && npm run preview`로 확인하세요.
-- 아이콘은 `public/icon.svg`가 원본이고, `pwa-*.png`는 여기서 뽑은 이미지입니다. 마스커블 원본은 `scripts/icon-maskable.svg`입니다.
-- 서버 푸시(복약 알림)는 백엔드가 준비된 뒤 서비스 워커에 `push` 이벤트 처리를 추가해야 합니다. 아직 구현 전입니다.
-
-## 배포
-
-- 현재 배포 주소: https://senior-welfare-web.vercel.app (GitHub 연결, main에 합치면 자동 배포)
-- 아이폰은 사파리에서 열어 "공유 → 홈 화면에 추가"로 설치합니다. 안드로이드 크롬은 설치 배너가 뜹니다.
-
-`vercel.json`에 SPA 라우팅 설정이 포함되어 있어 Vercel에 그대로 배포할 수 있습니다.
+- `main` 에 PR 을 합치면 Vercel 이 자동으로 배포합니다. PR 마다 미리보기 주소도 만들어집니다.
+- `vercel.json` 에 SPA 라우팅 설정이 있습니다.
+- 개발용 연결 정보 폴더 `.vercel` 은 Git 에 올리지 않습니다.
