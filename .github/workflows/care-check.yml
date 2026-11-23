@@ -1,0 +1,26 @@
+# 늘봄: 10분마다 기상·복약 미확인을 확인해 휴대폰 알림을 보냅니다.
+# 어르신·보호자 앱이 모두 닫혀 있어도 동작하도록 서버(/api/check)를 부릅니다.
+# 필요한 저장소 비밀값(Settings → Secrets and variables → Actions):
+#   CRON_SECRET  — Vercel 환경 변수 CRON_SECRET 과 같은 값
+name: care-check
+
+on:
+  schedule:
+    - cron: '*/10 * * * *' # GitHub 사정에 따라 몇 분 늦게 실행될 수 있음
+  workflow_dispatch: # Actions 탭에서 직접 실행해 볼 수 있음
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: 미확인 확인 요청
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE: https://senior-welfare-web.vercel.app
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "CRON_SECRET 비밀값이 없어 건너뜁니다."
+            exit 0
+          fi
+          curl -fsS --max-time 60 -H "Authorization: Bearer $CRON_SECRET" "$SITE/api/check"

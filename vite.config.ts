@@ -31,6 +31,8 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // 앱이 닫혀 있어도 휴대폰 알림을 받는 코드 (public/push-sw.js)
+        importScripts: ['push-sw.js'],
         // SPA 라우팅: 오프라인에서도 앱 화면이 열리도록 index.html 로 대체합니다.
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/auth\//, /^\/api\//],
