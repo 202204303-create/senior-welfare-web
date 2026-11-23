@@ -1,11 +1,31 @@
-/** 브라우저 알림(권한이 있을 때)을 띄웁니다. 지원하지 않는 브라우저에서는 조용히 넘어갑니다. */
+/**
+ * 휴대폰·브라우저 알림을 띄웁니다. (알림 권한이 있을 때만)
+ *
+ * 안드로이드 크롬과 홈 화면에 설치한 앱(PWA)은 `new Notification()`을 지원하지 않으므로
+ * 서비스 워커(registration.showNotification)로 띄우고, 서비스 워커가 없을 때만 기본 방식을 씁니다.
+ */
 export function showSystemNotification(title: string, body: string) {
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
-  try {
-    new Notification(title, { body, icon: '/favicon.svg', tag: body })
-  } catch {
-    /* 일부 모바일 브라우저는 서비스워커 없이 알림 생성 불가 */
+  const options: NotificationOptions = {
+    body,
+    icon: '/pwa-192x192.png',
+    badge: '/pwa-192x192.png',
+    tag: body,
   }
+
+  const fallback = () => {
+    try {
+      new Notification(title, options)
+    } catch {
+      /* 이 브라우저에서는 알림을 띄울 수 없음 (화면 안내·음성으로 대신함) */
+    }
+  }
+
+  if (!('serviceWorker' in navigator)) return fallback()
+  navigator.serviceWorker
+    .getRegistration()
+    .then((reg) => (reg ? reg.showNotification(title, options) : fallback()))
+    .catch(fallback)
 }
 
 /** 글을 한국어 음성으로 읽어 줍니다. (어르신 안내용) */

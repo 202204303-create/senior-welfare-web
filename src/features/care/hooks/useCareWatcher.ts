@@ -3,6 +3,7 @@ import { timeToMinutes, todayKey, useCareStore, type AlertChannel } from '@/feat
 import { useUserStore } from '@/features/auth/store/useUserStore'
 import { useSettingsStore } from '@/shared/store/useSettingsStore'
 import { useNow } from '@/shared/hooks/useNow'
+import { showSystemNotification } from '@/shared/lib/notify'
 import type { Medication } from '@/features/care/types'
 
 export type MedStatus = 'taken' | 'upcoming' | 'due' | 'missed'
@@ -27,14 +28,7 @@ export const CHANNEL_LABEL: Record<AlertChannel, string> = {
   sms: '문자(SMS)',
 }
 
-function sendWebPush(title: string, body: string) {
-  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
-  try {
-    new Notification(title, { body, icon: '/favicon.svg', tag: title })
-  } catch {
-    /* 일부 모바일 브라우저는 서비스워커 없이 생성 불가 */
-  }
-}
+const sendWebPush = showSystemNotification
 
 /**
  * 기상 확인 / 복약 체크 미확인 시 보호자·복지사에게 긴급 알림을 보냅니다.
