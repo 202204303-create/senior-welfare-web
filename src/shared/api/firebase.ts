@@ -12,6 +12,8 @@ const TEAM_CONFIG = {
   authDomain: 'neulbom-c7096.firebaseapp.com',
   projectId: 'neulbom-c7096',
   appId: '1:640806551684:web:d3243773fc5f858bad82d1',
+  // 휴대폰 알림(FCM)에 꼭 필요한 값입니다. appId 의 가운데 숫자(프로젝트 번호)와 같습니다.
+  messagingSenderId: '640806551684',
 }
 
 /**
@@ -24,6 +26,7 @@ const config = {
   authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || TEAM_CONFIG.authDomain,
   projectId: env.VITE_FIREBASE_PROJECT_ID || TEAM_CONFIG.projectId,
   appId: env.VITE_FIREBASE_APP_ID || TEAM_CONFIG.appId,
+  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID || TEAM_CONFIG.messagingSenderId,
 }
 
 export const isFirebaseEnabled =
