@@ -56,27 +56,27 @@ export function PushPermission({
         </BigButton>
       )}
       {state === 'granted' && device === 'registered' && (
-        <StatusNote tone="success">
-          휴대폰 알림이 켜져 있어요. 늘봄을 닫아 두거나 화면이 꺼져 있어도 알림이 와요.
+        <StatusNote tone="success">휴대폰 알림이 켜져 있어요. 화면이 꺼져 있어도 알림이 와요.</StatusNote>
+      )}
+      {state === 'granted' && device === 'error' && (
+        <StatusNote tone="warn">
+          알림 등록에 실패했어요. 인터넷을 확인한 뒤 늘봄을 다시 열어 주세요.
         </StatusNote>
       )}
-      {state === 'granted' && device !== 'registered' && (
-        <StatusNote tone={device === 'error' ? 'warn' : 'success'}>
-          휴대폰 알림이 켜져 있어요. 늘봄이 열려 있으면 다른 앱을 쓰는 중에도 알림으로 알려 드려요.
-          {device === 'unsupported' &&
-            ' (이 브라우저는 앱이 닫혀 있을 때의 알림을 지원하지 않아요. 아이폰은 홈 화면에 늘봄을 추가해 주세요.)'}
-          {device === 'error' &&
-            ' (앱이 닫혀 있을 때의 알림 등록에 실패했어요. 인터넷 연결을 확인하고 다시 열어 주세요.)'}
+      {state === 'granted' && device !== 'registered' && device !== 'error' && (
+        <StatusNote tone="info">
+          지금은 늘봄이 열려 있을 때만 알림이 와요.
+          {device === 'unsupported' && ' 아이폰은 홈 화면에 늘봄을 추가하고, 그 아이콘으로 열어 주세요.'}
         </StatusNote>
       )}
       {state === 'denied' && (
         <StatusNote tone="warn">
-          알림이 막혀 있어요. 휴대폰의 브라우저 설정 → 사이트 설정 → 알림에서 늘봄을 허용해 주세요.
+          알림이 꺼져 있어요. 휴대폰 설정에서 늘봄(또는 브라우저)의 알림을 허용해 주세요.
         </StatusNote>
       )}
       {state === 'unsupported' && (
         <StatusNote tone="info">
-          이 브라우저에서는 휴대폰 알림을 받을 수 없어요. 아이폰은 홈 화면에 늘봄을 추가한 뒤 열어 주세요.
+          여기서는 알림을 받을 수 없어요. 아이폰은 홈 화면에 늘봄을 추가하고, 그 아이콘으로 열어 주세요.
         </StatusNote>
       )}
     </div>

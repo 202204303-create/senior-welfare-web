@@ -38,6 +38,7 @@ interface CareState {
   remindedKeys: string[] // 어르신에게 이미 알려 드린 복약·기상 안내 (중복 방지)
   guardianLinkSent: boolean // 보호자에게 연결 링크를 보낸 적이 있는지 (처음 사용 안내용)
   guideDismissed: boolean // 처음 사용 안내를 닫았는지
+  setupDone: boolean // 예시 정보(이름·약)를 내 것으로 바꾸는 첫 설정을 마쳤거나 넘겼는지
 
   checkWakeUp: () => void
   toggleMed: (medId: string) => void
@@ -51,6 +52,8 @@ interface CareState {
   markReminded: (key: string) => boolean
   setGuardianLinkSent: () => void
   dismissGuide: () => void
+  /** 첫 설정: 예시 약을 지우고(선택) 설정을 마친 것으로 표시 */
+  finishSetup: (clearSampleMeds: boolean) => void
   applyAcks: (acks: Pick<AlertLog, 'id' | 'ackAt' | 'ackBy'>[]) => void
   mergeServerAlerts: (list: AlertLog[]) => void
 }
@@ -79,7 +82,7 @@ export function makeFamilyCode() {
   return Array.from(bytes, (b) => CODE_CHARS[b % CODE_CHARS.length]).join('')
 }
 
-const DEFAULT_MEDS: Medication[] = [
+export const DEFAULT_MEDS: Medication[] = [
   { id: 'm-1', name: '혈압약 (아모디핀)', slot: '아침', time: '08:00', memo: '식후 30분' },
   { id: 'm-2', name: '관절 영양제', slot: '점심', time: '12:30', memo: '식후' },
   { id: 'm-3', name: '당뇨약 (메트포르민)', slot: '저녁', time: '18:30', memo: '식사 직후' },
@@ -102,6 +105,14 @@ export const useCareStore = create<CareState>()(
       guideDismissed: false,
       setGuardianLinkSent: () => set({ guardianLinkSent: true }),
       dismissGuide: () => set({ guideDismissed: true }),
+      setupDone: false,
+      finishSetup: (clearSampleMeds) =>
+        set((s) => ({
+          setupDone: true,
+          medications: clearSampleMeds
+            ? s.medications.filter((m) => !DEFAULT_MEDS.some((d) => d.id === m.id))
+            : s.medications,
+        })),
 
       checkWakeUp: () =>
         set((s) => {

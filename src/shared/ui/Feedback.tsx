@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle2, Info, RotateCw, X } from 'lucide-react'
 import { useEffect, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { BigButton } from '@/shared/ui/BigButton'
 
 export function Skeleton({ className = '' }: { className?: string }) {
@@ -135,7 +136,8 @@ export function Modal({
 
   if (!open) return null
   // 흐림 효과(backdrop-blur)는 쓰지 않습니다: 아이폰에서 창을 닫은 뒤에도 화면이 한동안 흐리게 남는 문제가 있었습니다.
-  return (
+  // 페이지의 등장 애니메이션(transform) 안에 갇히면 아래 메뉴에 가려지므로 body 바로 아래에 띄웁니다.
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
       role="dialog"
@@ -143,7 +145,7 @@ export function Modal({
       aria-label={title}
     >
       <button className="absolute inset-0 bg-brand-900/40" onClick={onClose} aria-label="닫기" />
-      <div className="relative max-h-[90dvh] w-full max-w-lg animate-fade-up overflow-y-auto rounded-t-3xl bg-white p-6 shadow-glass-lg sm:rounded-3xl">
+      <div className="relative max-h-[90dvh] w-full max-w-lg animate-fade-up overflow-y-auto rounded-t-3xl bg-white p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-glass-lg sm:rounded-3xl">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-xl font-extrabold">{title}</h2>
           <button
@@ -156,6 +158,7 @@ export function Modal({
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
