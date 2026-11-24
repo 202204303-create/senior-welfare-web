@@ -1,20 +1,11 @@
 import { LogOut, Save, UserRound } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BigButton, InfoCard, PageHeader, SelectField, StatusNote, TextField } from '@/shared/ui'
+import { BigButton, InfoCard, PageHeader, StatusNote, TextField } from '@/shared/ui'
 import { FONT_SCALE_PX, useSettingsStore, type FontScale } from '@/shared/store/useSettingsStore'
 import { getAge, useUserStore } from '@/features/auth/store/useUserStore'
-import type { IncomeLevel, Region } from '@/shared/types'
 import type { UserProfile } from '@/features/auth/types'
 
-const REGIONS: Region[] = ['서울', '경기', '인천', '부산', '대구', '광주', '대전', '강원']
-const INCOMES: IncomeLevel[] = [
-  '기초생활수급',
-  '차상위',
-  '중위소득 50% 이하',
-  '중위소득 100% 이하',
-  '해당 없음',
-]
 const PROVIDER_LABEL = { kakao: '카카오 계정', naver: '네이버 계정', guest: '둘러보기 모드' }
 const SCALE_LABEL: Record<FontScale, string> = { normal: '보통', large: '크게', xlarge: '아주 크게' }
 
@@ -31,7 +22,7 @@ export function MyPage() {
 
   return (
     <div className="mx-auto max-w-3xl animate-fade-up">
-      <PageHeader title="내 정보" desc="여기 적은 정보로 지원서와 맞춤 혜택이 자동으로 채워져요." />
+      <PageHeader title="내 정보" desc="이름과 보호자 정보는 안부·복약 알림에 쓰여요." />
 
       <div className="glass-sky mb-5 flex items-center gap-4 rounded-3xl p-5">
         <div className="grid size-16 place-items-center rounded-full bg-white text-brand-500 shadow-sm">
@@ -77,24 +68,6 @@ export function MyPage() {
               value={draft.phone}
               onChange={(e) => set('phone', e.target.value)}
             />
-            <SelectField
-              label="거주 지역"
-              options={REGIONS}
-              value={draft.region}
-              onChange={(e) => set('region', e.target.value as Region)}
-            />
-            <TextField
-              label="주소"
-              className="sm:col-span-2"
-              value={draft.address}
-              onChange={(e) => set('address', e.target.value)}
-            />
-            <SelectField
-              label="소득 수준"
-              options={INCOMES}
-              value={draft.income}
-              onChange={(e) => set('income', e.target.value as IncomeLevel)}
-            />
             <label className="flex min-h-14 cursor-pointer items-center gap-3 self-end rounded-2xl bg-white/85 px-4 ring-2 ring-brand-100">
               <input
                 type="checkbox"
@@ -104,12 +77,6 @@ export function MyPage() {
               />
               <span className="text-lg font-bold">혼자 살고 있어요</span>
             </label>
-            <TextField
-              label="주요 경력"
-              className="sm:col-span-2"
-              value={draft.career}
-              onChange={(e) => set('career', e.target.value)}
-            />
           </div>
         </InfoCard>
 

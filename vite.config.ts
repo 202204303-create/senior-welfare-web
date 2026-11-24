@@ -16,7 +16,7 @@ export default defineConfig({
       manifest: {
         name: '늘봄 - 시니어 통합 복지',
         short_name: '늘봄',
-        description: '안부 확인, 복약 관리, 일자리, 복지시설 지도, 맞춤 정책 안내',
+        description: '독거 어르신 안부 확인, 복약 알림·체크, 보호자 휴대폰 알림',
         lang: 'ko',
         start_url: '/',
         scope: '/',

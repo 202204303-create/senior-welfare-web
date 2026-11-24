@@ -30,7 +30,7 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
     password: '1234',
     role: 'elder',
     label: '사용자(어르신)',
-    desc: '안부 확인·복약·일자리·시설·혜택',
+    desc: '안부 확인·복약 체크·긴급 요청',
   },
   {
     id: 'guardian',
