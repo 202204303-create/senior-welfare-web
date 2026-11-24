@@ -134,6 +134,7 @@ export function Modal({
   }, [open, onClose])
 
   if (!open) return null
+  // 흐림 효과(backdrop-blur)는 쓰지 않습니다: 아이폰에서 창을 닫은 뒤에도 화면이 한동안 흐리게 남는 문제가 있었습니다.
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
@@ -141,12 +142,8 @@ export function Modal({
       aria-modal="true"
       aria-label={title}
     >
-      <button
-        className="absolute inset-0 bg-brand-900/25 backdrop-blur-sm"
-        onClick={onClose}
-        aria-label="닫기"
-      />
-      <div className="relative max-h-[90dvh] w-full max-w-lg animate-fade-up overflow-y-auto rounded-t-3xl bg-white/95 p-6 shadow-glass-lg backdrop-blur-xl sm:rounded-3xl">
+      <button className="absolute inset-0 bg-brand-900/40" onClick={onClose} aria-label="닫기" />
+      <div className="relative max-h-[90dvh] w-full max-w-lg animate-fade-up overflow-y-auto rounded-t-3xl bg-white p-6 shadow-glass-lg sm:rounded-3xl">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-xl font-extrabold">{title}</h2>
           <button
