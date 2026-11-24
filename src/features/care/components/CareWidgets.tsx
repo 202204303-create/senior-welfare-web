@@ -102,14 +102,12 @@ export function MedChecklist({ compact = false }: { compact?: boolean }) {
       <div className="rounded-2xl bg-brand-50 p-4 text-center">
         <p className="text-lg font-bold">아직 등록한 약이 없어요</p>
         <p className="mt-1 text-base text-ink-soft">드시는 약을 넣어 두면 시간마다 알려 드려요.</p>
-        {compact && (
-          <Link
-            to="/care"
-            className="mt-3 inline-flex min-h-12 items-center justify-center rounded-xl bg-brand-600 px-5 text-lg font-bold text-white"
-          >
-            약 넣으러 가기
-          </Link>
-        )}
+        <Link
+          to="/care"
+          className="mt-3 inline-flex min-h-12 items-center justify-center rounded-xl bg-brand-600 px-5 text-lg font-bold text-white"
+        >
+          약 넣으러 가기
+        </Link>
       </div>
     )
   }

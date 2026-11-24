@@ -38,14 +38,14 @@ export function DashboardPage() {
             to="/care"
             className="flex min-h-11 items-center gap-0.5 rounded-xl px-2 text-base font-bold text-brand-600 hover:bg-brand-50"
           >
-            전체 <ChevronRight className="size-5" aria-hidden />
+            약 고치기 <ChevronRight className="size-5" aria-hidden />
           </Link>
         }
       >
         <div className="mb-4">
           <MedProgress />
         </div>
-        <MedChecklist compact />
+        <MedChecklist />
       </InfoCard>
 
       <SOSButton />

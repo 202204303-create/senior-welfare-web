@@ -146,11 +146,11 @@ function CodeForm({ onSubmit }: { onSubmit: (code: string) => void }) {
     <InfoCard
       title="가족 코드를 입력해 주세요"
       icon={<KeyRound />}
-      subtitle="어르신 휴대폰의 '안부·복약' 화면에 있는 6자리 코드예요."
+      subtitle="어르신 휴대폰의 '알림' 화면에 있는 6자리 코드예요."
     >
       <p className="mb-4 rounded-2xl bg-brand-50 p-4 text-base">
         <b>어르신께 받은 링크</b>를 누르셨다면 코드 없이 바로 연결돼요. 링크가 없으면 어르신 휴대폰의 늘봄 →
-        안부·복약 → <b>보호자에게 링크 보내기</b>를 눌러 달라고 해 주세요.
+        알림 → <b>보호자에게 링크 보내기</b>를 눌러 달라고 해 주세요.
       </p>
       <form
         className="space-y-4"
