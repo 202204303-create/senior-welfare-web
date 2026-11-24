@@ -1,4 +1,4 @@
-import { Briefcase, HeartPulse, Landmark, MapPin, ShieldCheck, UserRound } from 'lucide-react'
+import { BellRing, HeartPulse, ShieldCheck, Siren, Sun, UserRound } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { BigButton, StatusNote, TextField } from '@/shared/ui'
@@ -7,10 +7,10 @@ import { DEMO_ACCOUNTS, findAccount, homePathOf } from '@/features/auth/lib/demo
 import { useUserStore, type SocialProvider } from '@/features/auth/store/useUserStore'
 
 const FEATURES = [
-  { Icon: HeartPulse, title: '안부·복약 알림', desc: '약 드실 시간을 알려드려요' },
-  { Icon: Briefcase, title: '일자리 한 번에 신청', desc: '지원서가 자동으로 채워져요' },
-  { Icon: MapPin, title: '가까운 복지시설', desc: '내 주변 복지관을 찾아요' },
-  { Icon: Landmark, title: '맞춤 복지 혜택', desc: '받을 수 있는 혜택만 골라요' },
+  { Icon: Sun, title: '아침 안부 확인', desc: '버튼 하나로 잘 지내심을 알려요' },
+  { Icon: HeartPulse, title: '복약 알림·체크', desc: '약 드실 시간을 알려드려요' },
+  { Icon: Siren, title: '긴급 도움 요청', desc: '보호자에게 바로 알려요' },
+  { Icon: BellRing, title: '보호자 휴대폰 알림', desc: '화면이 꺼져 있어도 도착해요' },
 ]
 
 export function LoginPage() {

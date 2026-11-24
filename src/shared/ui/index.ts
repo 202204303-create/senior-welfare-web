@@ -1,7 +1,5 @@
 export { BigButton, BigLink } from './BigButton'
 export { InfoCard } from './InfoCard'
-export { Chip, ChipGroup } from './Chip'
-export { VoiceInputBox } from './VoiceInputBox'
 export { TextField, SelectField } from './FormField'
 export { PageHeader } from './PageHeader'
 export { Skeleton, LoadingList, ErrorState, EmptyState, StatusNote, Modal } from './Feedback'

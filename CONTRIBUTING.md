@@ -12,9 +12,6 @@ src/
     auth/       로그인, 소셜 OAuth, 사용자 프로필 스토어
     dashboard/  홈 대시보드, 내 정보
     care/       안부·복약, 보호자 알림
-    jobs/       일자리·프로그램, 원클릭 지원서
-    map/        복지 시설 지도
-    policies/   맞춤 정책
       pages/       라우트에 연결되는 화면
       components/  이 기능에서만 쓰는 컴포넌트
       api/         API 호출(xxx.ts), React Query 훅(queries.ts), Mock 데이터(mock.ts)
@@ -32,7 +29,7 @@ src/
 
 ### 지켜야 할 것
 
-- 다른 기능 폴더를 가져다 쓸 때는 `@/features/jobs/...` 처럼 절대 경로로 씁니다.
+- 다른 기능 폴더를 가져다 쓸 때는 `@/features/care/...` 처럼 절대 경로로 씁니다.
 - 한 기능에서만 쓰는 코드는 그 기능 폴더 안에 둡니다. 두 곳 이상에서 쓰게 되면 `shared/`로 옮깁니다.
 - 상대 경로는 같은 폴더 안 파일끼리만 씁니다. 예: `./mock`, `../types`
 - 새 공통 UI 컴포넌트는 `shared/ui`에 만들고 `index.ts`에서 내보냅니다.
@@ -53,7 +50,7 @@ src/
 ## 브랜치와 커밋
 
 - 브랜치: `main` 은 배포용입니다. 작업은 `feat/기능-내용`, `fix/내용` 브랜치에서 하고 Pull Request로 합칩니다.
-  - 예: `feat/care-sos-button`, `fix/map-marker-overlap`
+  - 예: `feat/care-sos-button`, `fix/guardian-header-wrap`
 - 커밋 메시지는 `종류: 내용` 형식입니다. 종류는 `feat`, `fix`, `style`, `refactor`, `docs`, `chore`를 씁니다.
   - 예: `feat: 복약 체크 편집 모드 추가`
 - PR 전에 아래 세 가지를 통과시킵니다.

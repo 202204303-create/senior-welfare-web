@@ -4,13 +4,9 @@ import { AppLayout } from '@/shared/layout/AppLayout'
 import { CarePage } from '@/features/care/pages/CarePage'
 import { GuardianPage } from '@/features/care/pages/GuardianPage'
 import { DashboardPage } from '@/features/dashboard/pages/DashboardPage'
-import { JobApplyPage } from '@/features/jobs/pages/JobApplyPage'
-import { JobsPage } from '@/features/jobs/pages/JobsPage'
 import { LoginPage } from '@/features/auth/pages/LoginPage'
-import { MapPage } from '@/features/map/pages/MapPage'
 import { MyPage } from '@/features/dashboard/pages/MyPage'
 import { NotFoundPage } from '@/shared/pages/NotFoundPage'
-import { PoliciesPage } from '@/features/policies/pages/PoliciesPage'
 import { WorkerPage } from '@/features/worker/pages/WorkerPage'
 import { homePathOf } from '@/features/auth/lib/demoAccounts'
 import { useUserStore } from '@/features/auth/store/useUserStore'
@@ -56,10 +52,6 @@ export default function App() {
       >
         <Route index element={<DashboardPage />} />
         <Route path="care" element={<CarePage />} />
-        <Route path="jobs" element={<JobsPage />} />
-        <Route path="jobs/:id/apply" element={<JobApplyPage />} />
-        <Route path="map" element={<MapPage />} />
-        <Route path="policies" element={<PoliciesPage />} />
         <Route path="my" element={<MyPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

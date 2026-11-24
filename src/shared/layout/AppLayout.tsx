@@ -1,4 +1,4 @@
-import { Briefcase, HeartPulse, Home, Landmark, MapPin, Type, UserRound } from 'lucide-react'
+import { HeartPulse, Home, Type, UserRound } from 'lucide-react'
 import { useEffect } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { CareReminderBanner } from '@/features/care/components/CareWidgets'
@@ -12,9 +12,7 @@ import { InstallBanner, NoticeStack } from '@/shared/ui'
 const NAV = [
   { to: '/', label: '홈', Icon: Home, end: true },
   { to: '/care', label: '안부·복약', Icon: HeartPulse },
-  { to: '/jobs', label: '일자리', Icon: Briefcase },
-  { to: '/map', label: '시설 지도', Icon: MapPin },
-  { to: '/policies', label: '복지 혜택', Icon: Landmark },
+  { to: '/my', label: '내 정보', Icon: UserRound },
 ] as const
 
 const SCALE_ORDER: FontScale[] = ['normal', 'large', 'xlarge']
@@ -134,7 +132,7 @@ export function AppLayout() {
         className="safe-bottom fixed inset-x-0 bottom-0 z-30 border-t border-white/80 bg-white/75 backdrop-blur-xl md:hidden"
         aria-label="하단 메뉴"
       >
-        <ul className="mx-auto grid max-w-lg grid-cols-5 px-1 pt-1.5">
+        <ul className="mx-auto grid max-w-lg grid-cols-3 px-1 pt-1.5">
           {NAV.map(({ to, label, Icon, ...rest }) => (
             <li key={to}>
               <NavLink
