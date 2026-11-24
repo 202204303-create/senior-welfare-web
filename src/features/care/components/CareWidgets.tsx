@@ -13,6 +13,7 @@ import {
   Sun,
 } from 'lucide-react'
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { getMedStatus, useAlertDispatch } from '@/features/care/hooks/useCareWatcher'
 import { useSyncStatus, type SyncStatus } from '@/features/care/hooks/useCareSync'
 import { WAKE_REMIND_BEFORE_MIN } from '@/features/care/hooks/useCareReminder'
@@ -96,6 +97,23 @@ export function MedChecklist({ compact = false }: { compact?: boolean }) {
 
   const list = compact ? medications.filter((m) => !taken[m.id]).slice(0, 2) : medications
 
+  if (medications.length === 0) {
+    return (
+      <div className="rounded-2xl bg-brand-50 p-4 text-center">
+        <p className="text-lg font-bold">아직 등록한 약이 없어요</p>
+        <p className="mt-1 text-base text-ink-soft">드시는 약을 넣어 두면 시간마다 알려 드려요.</p>
+        {compact && (
+          <Link
+            to="/care"
+            className="mt-3 inline-flex min-h-12 items-center justify-center rounded-xl bg-brand-600 px-5 text-lg font-bold text-white"
+          >
+            약 넣으러 가기
+          </Link>
+        )}
+      </div>
+    )
+  }
+
   if (compact && list.length === 0) {
     return (
       <p className="rounded-2xl bg-emerald-50 p-4 text-center text-lg font-bold text-emerald-700">
@@ -119,7 +137,7 @@ export function MedChecklist({ compact = false }: { compact?: boolean }) {
                   toggleMed(med.id)
                 }}
                 aria-pressed={isTaken}
-                className={`flex w-full items-center gap-4 rounded-2xl p-4 text-left ring-2 transition active:scale-[0.99] ${
+                className={`block w-full rounded-2xl p-4 text-left ring-2 transition active:scale-[0.99] ${
                   isTaken
                     ? 'bg-emerald-50/80 ring-emerald-200'
                     : status === 'due'
@@ -129,37 +147,49 @@ export function MedChecklist({ compact = false }: { compact?: boolean }) {
                         : 'bg-white/70 ring-brand-100'
                 }`}
               >
-                <span
-                  className={`grid size-14 shrink-0 place-items-center rounded-2xl border-[3px] transition ${
-                    isTaken
-                      ? 'border-emerald-500 bg-emerald-500 text-white'
-                      : 'border-brand-300 bg-white text-brand-300'
-                  }`}
-                  aria-hidden
-                >
-                  {isTaken ? <Check className="size-8" strokeWidth={3} /> : <Pill className="size-7" />}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex flex-wrap items-center gap-2">
-                    <span className="text-lg font-extrabold">{med.slot}</span>
-                    <span className={`rounded-full px-2.5 py-0.5 text-sm font-bold ${s.cls}`}>{s.label}</span>
-                  </span>
-                  <span className={`block text-lg ${isTaken ? 'text-ink-soft line-through' : 'text-ink'}`}>
-                    {med.name}
-                  </span>
-                  <span className="flex items-center gap-1 text-sm text-ink-soft">
-                    <Clock className="size-4" aria-hidden />
-                    {med.time}
-                    {med.memo && ` · ${med.memo}`}
-                    {isTaken && ` · ${fmtTime(taken[med.id])} 복용`}
-                  </span>
-                </span>
-                {/* 누를 수 있다는 것을 알 수 있도록 안 먹은 약에는 '먹었어요' 표시 */}
-                {!isTaken && (
+                {/* 휴대폰에서도 약 이름·시간이 잘게 쪼개지지 않도록 위아래로 배치합니다. */}
+                <span className="flex items-center gap-3">
                   <span
-                    className="shrink-0 rounded-xl bg-brand-600 px-3 py-2 text-base font-bold text-white"
+                    className={`grid size-12 shrink-0 place-items-center rounded-2xl border-[3px] transition ${
+                      isTaken
+                        ? 'border-emerald-500 bg-emerald-500 text-white'
+                        : 'border-brand-300 bg-white text-brand-300'
+                    }`}
                     aria-hidden
                   >
+                    {isTaken ? <Check className="size-7" strokeWidth={3} /> : <Pill className="size-6" />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="text-lg font-extrabold whitespace-nowrap">
+                        {med.slot} {med.time}
+                      </span>
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-sm font-bold whitespace-nowrap ${s.cls}`}
+                      >
+                        {s.label}
+                      </span>
+                    </span>
+                    {(med.memo || isTaken) && (
+                      <span className="flex items-center gap-1 text-base text-ink-soft">
+                        <Clock className="size-4 shrink-0" aria-hidden />
+                        {[med.memo, isTaken && `${fmtTime(taken[med.id])} 복용`].filter(Boolean).join(' · ')}
+                      </span>
+                    )}
+                  </span>
+                </span>
+                <span
+                  className={`mt-2 block text-xl font-extrabold leading-snug ${isTaken ? 'text-ink-soft line-through' : 'text-ink'}`}
+                >
+                  {med.name}
+                </span>
+                {/* 누를 수 있다는 것을 알 수 있도록 안 먹은 약에는 큰 '먹었어요' 표시 */}
+                {!isTaken && (
+                  <span
+                    className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-600 text-lg font-bold text-white"
+                    aria-hidden
+                  >
+                    <Check className="size-5" strokeWidth={3} />
                     먹었어요
                   </span>
                 )}
@@ -229,7 +259,13 @@ export function MedProgress() {
 
 export function SOSButton({ className = '' }: { className?: string }) {
   const [open, setOpen] = useState(false)
+  // 보낸 뒤에는 창을 바로 닫지 않고 '보냈어요'를 크게 보여 줍니다. (놀란 상황에서도 확실히 알 수 있게)
+  const [sent, setSent] = useState(false)
   const { sendSOS } = useAlertDispatch()
+  const close = () => {
+    setOpen(false)
+    setSent(false)
+  }
   return (
     <>
       <BigButton
@@ -243,33 +279,60 @@ export function SOSButton({ className = '' }: { className?: string }) {
         긴급 도움 요청
       </BigButton>
       <SosStatus />
-      <Modal open={open} onClose={() => setOpen(false)} title="긴급 도움을 요청할까요?">
-        <p className="mb-6 text-lg text-ink-soft">
-          보호자와 담당 사회복지사에게 지금 바로 알림을 보내요. 위급한 상황이면 119에 먼저 전화해 주세요.
-        </p>
-        <div className="space-y-3">
-          <BigButton
-            variant="danger"
-            size="xl"
-            fullWidth
-            icon={<Siren />}
-            onClick={() => {
-              sendSOS()
-              setOpen(false)
-            }}
-          >
-            네, 알림 보내기
-          </BigButton>
-          <a
-            href="tel:119"
-            className="flex min-h-14 w-full items-center justify-center rounded-2xl border-2 border-rose-300 bg-white text-lg font-bold text-rose-600"
-          >
-            119 전화 걸기
-          </a>
-          <BigButton variant="ghost" fullWidth onClick={() => setOpen(false)}>
-            취소
-          </BigButton>
-        </div>
+      <Modal open={open} onClose={close} title={sent ? '긴급 알림을 보냈어요' : '긴급 도움을 요청할까요?'}>
+        {sent ? (
+          <>
+            <div className="mb-5 flex flex-col items-center gap-3 rounded-3xl bg-emerald-50 p-6 text-center ring-2 ring-emerald-200">
+              <span className="grid size-16 place-items-center rounded-full bg-emerald-500 text-white">
+                <Check className="size-9" strokeWidth={3} aria-hidden />
+              </span>
+              <p className="text-xl font-extrabold text-emerald-800">보호자와 복지사에게 알렸어요</p>
+              <p className="text-base text-ink-soft">
+                보호자가 확인하면 홈 화면의 긴급 버튼 아래에 표시돼요.
+              </p>
+            </div>
+            <div className="space-y-3">
+              <a
+                href="tel:119"
+                className="flex min-h-14 w-full items-center justify-center rounded-2xl border-2 border-rose-300 bg-white text-lg font-bold text-rose-600"
+              >
+                위급하면 119 전화 걸기
+              </a>
+              <BigButton fullWidth size="lg" onClick={close}>
+                확인
+              </BigButton>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="mb-6 text-lg text-ink-soft">
+              보호자와 담당 사회복지사에게 지금 바로 알림을 보내요. 위급한 상황이면 119에 먼저 전화해 주세요.
+            </p>
+            <div className="space-y-3">
+              <BigButton
+                variant="danger"
+                size="xl"
+                fullWidth
+                icon={<Siren />}
+                onClick={() => {
+                  sendSOS()
+                  setSent(true)
+                }}
+              >
+                네, 알림 보내기
+              </BigButton>
+              <a
+                href="tel:119"
+                className="flex min-h-14 w-full items-center justify-center rounded-2xl border-2 border-rose-300 bg-white text-lg font-bold text-rose-600"
+              >
+                119 전화 걸기
+              </a>
+              <BigButton variant="ghost" fullWidth onClick={close}>
+                취소
+              </BigButton>
+            </div>
+          </>
+        )}
       </Modal>
     </>
   )
@@ -293,7 +356,7 @@ export function FamilyCodeCard() {
     <div className="mt-3 rounded-2xl bg-brand-50/90 p-4 ring-1 ring-brand-100">
       <p className="text-base font-bold">보호자 연결</p>
       <p className="mb-3 text-sm text-ink-soft">링크를 보내 드리면 보호자는 누르기만 해도 바로 연결돼요.</p>
-      <BigButton fullWidth size="lg" icon={<Share2 />} onClick={share}>
+      <BigButton fullWidth size="lg" icon={<Share2 />} onClick={share} className="px-3 whitespace-nowrap">
         보호자에게 링크 보내기
       </BigButton>
       {shareNote && (
