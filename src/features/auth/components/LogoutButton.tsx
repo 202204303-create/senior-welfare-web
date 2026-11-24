@@ -9,7 +9,13 @@ export function LogoutButton() {
   const { signOut } = useAccountAuth()
   if (!isLoggedIn || (role !== 'guardian' && role !== 'worker')) return null
   return (
-    <BigButton size="md" variant="ghost" icon={<LogOut />} onClick={signOut}>
+    <BigButton
+      size="md"
+      variant="ghost"
+      icon={<LogOut />}
+      onClick={signOut}
+      className="shrink-0 px-2! whitespace-nowrap"
+    >
       로그아웃
     </BigButton>
   )

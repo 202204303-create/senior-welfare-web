@@ -20,7 +20,8 @@ const NAV = [
 const SCALE_ORDER: FontScale[] = ['normal', 'large', 'xlarge']
 const SCALE_LABEL: Record<FontScale, string> = { normal: '보통', large: '크게', xlarge: '아주 크게' }
 
-export function Logo() {
+/** compact: 좁은 휴대폰 화면에서는 '시니어 통합 복지' 부제를 숨겨 오른쪽 버튼 자리를 확보합니다. */
+export function Logo({ compact = false }: { compact?: boolean } = {}) {
   return (
     <Link to="/" className="flex items-center gap-2.5" aria-label="늘봄 홈으로">
       <span className="grid size-11 place-items-center rounded-2xl bg-linear-to-br from-brand-300 to-brand-600 text-white shadow-glass">
@@ -34,7 +35,11 @@ export function Logo() {
       </span>
       <span className="leading-none">
         <span className="block text-xl font-black tracking-tight text-brand-800">늘봄</span>
-        <span className="block text-xs font-semibold text-brand-600/80">시니어 통합 복지</span>
+        <span
+          className={`${compact ? 'hidden min-[420px]:block' : 'block'} text-xs font-semibold whitespace-nowrap text-brand-600/80`}
+        >
+          시니어 통합 복지
+        </span>
       </span>
     </Link>
   )
