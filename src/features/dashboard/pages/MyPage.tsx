@@ -22,7 +22,10 @@ export function MyPage() {
 
   return (
     <div className="mx-auto max-w-3xl animate-fade-up">
-      <PageHeader title="내 정보" desc="이름과 보호자 정보는 안부·복약 알림에 쓰여요." />
+      <PageHeader
+        title="내 정보"
+        desc="이름과 보호자 정보는 안부·복약 알림에 쓰여요. 약은 '약' 화면에서 고쳐요."
+      />
 
       <div className="glass-sky mb-5 flex items-center gap-4 rounded-3xl p-5">
         <div className="grid size-16 place-items-center rounded-full bg-white text-brand-500 shadow-sm">

@@ -1,4 +1,4 @@
-import { HeartPulse, Home, Type, UserRound } from 'lucide-react'
+import { BellRing, Home, Pill, Type, UserRound } from 'lucide-react'
 import { useEffect } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { CareReminderBanner } from '@/features/care/components/CareWidgets'
@@ -11,7 +11,8 @@ import { InstallBanner, NoticeStack } from '@/shared/ui'
 
 const NAV = [
   { to: '/', label: '홈', Icon: Home, end: true },
-  { to: '/care', label: '안부·복약', Icon: HeartPulse },
+  { to: '/care', label: '약', Icon: Pill },
+  { to: '/alerts', label: '알림', Icon: BellRing },
   { to: '/my', label: '내 정보', Icon: UserRound },
 ] as const
 
@@ -122,8 +123,8 @@ export function AppLayout() {
       <main id="main" className="mx-auto max-w-6xl px-4 pb-32 pt-5 sm:px-6 md:pb-12">
         <InstallBanner />
         <NoticeStack />
-        {/* 홈·안부·복약 화면에는 기상 카드와 오늘의 약이 이미 있으므로 배너를 띄우지 않습니다. */}
-        {pathname !== '/care' && pathname !== '/' && <CareReminderBanner />}
+        {/* 홈에는 기상 카드와 오늘의 약이 이미 있으므로 배너를 띄우지 않습니다. */}
+        {pathname !== '/' && <CareReminderBanner />}
         <Outlet />
       </main>
 
@@ -132,7 +133,7 @@ export function AppLayout() {
         className="safe-bottom fixed inset-x-0 bottom-0 z-30 border-t border-white/80 bg-white/75 backdrop-blur-xl md:hidden"
         aria-label="하단 메뉴"
       >
-        <ul className="mx-auto grid max-w-lg grid-cols-3 px-1 pt-1.5">
+        <ul className="mx-auto grid max-w-lg grid-cols-4 px-1 pt-1.5">
           {NAV.map(({ to, label, Icon, ...rest }) => (
             <li key={to}>
               <NavLink

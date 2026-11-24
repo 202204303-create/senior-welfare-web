@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AppLayout } from '@/shared/layout/AppLayout'
 import { CarePage } from '@/features/care/pages/CarePage'
+import { AlertsPage } from '@/features/care/pages/AlertsPage'
 import { GuardianPage } from '@/features/care/pages/GuardianPage'
 import { DashboardPage } from '@/features/dashboard/pages/DashboardPage'
 import { LoginPage } from '@/features/auth/pages/LoginPage'
@@ -52,6 +53,7 @@ export default function App() {
       >
         <Route index element={<DashboardPage />} />
         <Route path="care" element={<CarePage />} />
+        <Route path="alerts" element={<AlertsPage />} />
         <Route path="my" element={<MyPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
