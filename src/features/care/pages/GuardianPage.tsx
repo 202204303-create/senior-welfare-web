@@ -20,7 +20,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { MAX_ELDERS, initialCodes, saveCodes, saveSelected } from '@/features/care/lib/guardianCodes'
-import { registerPushDevice } from '@/shared/api/push'
+import { registerPushDevice, setMorningNotice } from '@/shared/api/push'
 import { LogoutButton } from '@/features/auth/components/LogoutButton'
 import { Logo } from '@/shared/layout/AppLayout'
 import { isFirebaseEnabled } from '@/shared/api/firebase'
@@ -605,6 +605,7 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
       <InfoCard title="받은 알림" icon={<BellRing />}>
         <div className="mb-4">
           <PushPermission role="guardian" familyCode={code} />
+          <MorningToggle code={code} elderName={family.elderName} />
         </div>
         {visibleAlerts.length === 0 ? (
           <p className="rounded-2xl bg-white/70 p-4 text-center text-base text-ink-soft">
@@ -769,6 +770,80 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
           이 어르신 목록에서 빼기
         </button>
       </p>
+    </div>
+  )
+}
+
+/**
+ * '아침 안부 알림 받기' 스위치. 기본은 꺼짐.
+ * 켜면 어르신이 '일어났어요'를 누를 때 이 기기로 소리·진동 없이 조용히 알려 드립니다.
+ * 어르신마다·기기마다 따로 정합니다.
+ */
+function MorningToggle({ code, elderName }: { code: string; elderName: string }) {
+  const key = `neulbom-morning-${code}`
+  const [on, setOn] = useState(() => {
+    try {
+      return localStorage.getItem(key) === '1'
+    } catch {
+      return false
+    }
+  })
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState<string | null>(null)
+  const allowed = typeof Notification !== 'undefined' && Notification.permission === 'granted'
+
+  const toggle = async () => {
+    const next = !on
+    setBusy(true)
+    setNote(null)
+    const result = await setMorningNotice(code, next)
+    setBusy(false)
+    if (result !== 'registered') {
+      setNote('설정을 저장하지 못했어요. 홈 화면의 늘봄 아이콘으로 열었는지, 인터넷이 되는지 확인해 주세요.')
+      return
+    }
+    setOn(next)
+    try {
+      localStorage.setItem(key, next ? '1' : '0')
+    } catch {
+      /* 저장이 막혀도 서버에는 저장됨 */
+    }
+  }
+
+  return (
+    <div className="mt-3 rounded-2xl bg-white/80 p-4 ring-1 ring-brand-100">
+      <div className="flex items-center justify-between gap-3">
+        <p className="flex items-center gap-2 text-base font-bold">
+          <Sun className="size-5 shrink-0 text-amber-500" aria-hidden />
+          아침 안부 알림 받기
+        </p>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={on}
+          aria-label={`${elderName} 님 아침 안부 알림 받기`}
+          disabled={!allowed || busy}
+          onClick={toggle}
+          className={`relative h-9 w-16 shrink-0 rounded-full transition disabled:opacity-50 ${on ? 'bg-brand-600' : 'bg-slate-300'}`}
+        >
+          <span
+            className={`absolute top-1 size-7 rounded-full bg-white shadow transition-all ${on ? 'left-8' : 'left-1'}`}
+            aria-hidden
+          />
+        </button>
+      </div>
+      <p className="mt-1 text-sm text-ink-soft">
+        {allowed
+          ? on
+            ? `${elderName} 님이 '일어났어요'를 누르면 이 휴대폰으로 조용히(소리·진동 없이) 알려 드려요.`
+            : `켜면 ${elderName} 님이 '일어났어요'를 누를 때 조용히 알려 드려요. 꺼 두어도 일어나지 않으셨을 때는 알림이 가요.`
+          : '먼저 위의 휴대폰 알림을 켜 주세요.'}
+      </p>
+      {note && (
+        <StatusNote tone="warn" className="mt-2" onClose={() => setNote(null)}>
+          {note}
+        </StatusNote>
+      )}
     </div>
   )
 }

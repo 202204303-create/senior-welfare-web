@@ -29,7 +29,11 @@ async function sha256(text: string) {
  * 이 기기를 '알림 받을 기기'로 서버에 등록합니다.
  * 알림 권한이 허용된 뒤에 부르세요. 앱을 열 때마다 불러도 됩니다(토큰이 바뀌면 새로 저장).
  */
-export async function registerPushDevice(code: string, role: PushRole): Promise<PushRegisterResult> {
+export async function registerPushDevice(
+  code: string,
+  role: PushRole,
+  extra: Record<string, unknown> = {},
+): Promise<PushRegisterResult> {
   if (!VAPID_KEY) return 'no-key'
   const app = getFirebaseApp()
   const db = getDb()
@@ -43,17 +47,31 @@ export async function registerPushDevice(code: string, role: PushRole): Promise<
     })
     if (!token) return 'error'
     await ensureSignedIn()
-    await setDoc(doc(db, 'families', code, 'pushTokens', (await sha256(token)).slice(0, 40)), {
-      token,
-      role,
-      userAgent: navigator.userAgent.slice(0, 200),
-      updatedAt: new Date().toISOString(),
-    })
+    await setDoc(
+      doc(db, 'families', code, 'pushTokens', (await sha256(token)).slice(0, 40)),
+      {
+        token,
+        role,
+        userAgent: navigator.userAgent.slice(0, 200),
+        updatedAt: new Date().toISOString(),
+        ...extra,
+      },
+      // 다시 등록해도 '아침 안부 알림' 같은 설정이 지워지지 않도록 합칩니다.
+      { merge: true },
+    )
     return 'registered'
   } catch (e) {
     console.warn('[늘봄] 휴대폰 알림 등록 실패', e)
     return 'error'
   }
+}
+
+/**
+ * 보호자 기기의 '아침 안부 알림 받기'(어르신이 '일어났어요'를 누르면 조용히 알림)를 켜거나 끕니다.
+ * 어르신마다·기기마다 따로 저장됩니다. 기본은 꺼짐.
+ */
+export function setMorningNotice(code: string, on: boolean) {
+  return registerPushDevice(code, 'guardian', { morning: on })
 }
 
 const REQUESTED_KEY = 'neulbom-push-requested'
