@@ -34,7 +34,7 @@ beforeEach(() => {
 
 test('앱이 모두 닫혀 있어도 10:05에 기상 미확인·약 놓침을 보호자에게 보내고 기록을 남긴다', async () => {
   const r = await run('10:05')
-  assert.deepEqual(r, { families: 1, guardianAlerts: 2, elderReminders: 0 })
+  assert.deepEqual(r, { families: 1, guardianAlerts: 2, elderReminders: 0, summaries: 1, escalations: 0 })
   assert.equal(sentTo('guardian-phone').length, 2)
   assert.match(sentTo('guardian-phone')[0], /10:00까지 기상 확인/)
   assert.equal(sentTo('elder-phone').length, 0, '보호자용 알림은 어르신 기기로 가지 않음')
@@ -67,7 +67,7 @@ test('약 드실 시간에는 어르신 기기로 한 번만 안내한다', asyn
 test('약을 드셨거나 일어나셨으면 보내지 않는다', async () => {
   db.store.set(`families/${CODE}/days/2026-11-17`, { wakeUpAt: 'x', takenMeds: { 'm-1': 'x' } })
   const r = await run('10:05')
-  assert.deepEqual(r, { families: 1, guardianAlerts: 0, elderReminders: 0 })
+  assert.deepEqual(r, { families: 1, guardianAlerts: 0, elderReminders: 0, summaries: 1, escalations: 0 })
 })
 
 test('휴대폰 알림을 켠 기기가 없는 가족은 확인하지 않는다', async () => {
