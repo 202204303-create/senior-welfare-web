@@ -16,6 +16,7 @@ export const GRADE_LABEL: Record<Grade, string> = {
 
 export const RESULT_LABEL: Record<ActionResult, string> = {
   call_ok: '통화 · 이상 없음',
+  checked: '확인했어요',
   call_no_answer: '통화 · 받지 않음',
   visit_needed: '방문 필요',
   guardian_notified: '보호자에게 전달',
@@ -130,5 +131,7 @@ export function issuesClosedBy(
   result: ActionResult,
   issues: OpenIssue[],
 ): { type: IssueType; alertId?: string }[] {
-  return result === 'call_ok' ? issues.map((i) => ({ type: i.type, alertId: i.alertId })) : []
+  return result === 'call_ok' || result === 'checked'
+    ? issues.map((i) => ({ type: i.type, alertId: i.alertId }))
+    : []
 }

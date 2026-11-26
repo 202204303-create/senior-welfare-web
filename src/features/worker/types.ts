@@ -4,7 +4,9 @@
  */
 export type Grade = 'P1' | 'P2' | 'P3' | 'P4' | 'P5'
 export type IssueType = 'sos' | 'guardian-unacked' | 'wake-missed' | 'med-repeat' | 'no-contact'
-export type ActionResult = 'call_ok' | 'call_no_answer' | 'visit_needed' | 'guardian_notified' | 'other'
+/** checked: 전화 없이 '확인했어요' (보호자가 이미 연락했거나 상황을 알고 있을 때). call_ok 처럼 이슈를 닫음 */
+export type ActionResult =
+  'call_ok' | 'checked' | 'call_no_answer' | 'visit_needed' | 'guardian_notified' | 'other'
 
 export interface LastAction {
   result: ActionResult
@@ -58,6 +60,6 @@ export interface Overlay {
   result: ActionResult
   byName: string
   followUpAt?: string
-  /** 이 처리로 닫힌 이슈 (call_ok 일 때) */
+  /** 이 처리로 닫힌 이슈 (call_ok·checked 일 때) */
   closed: { type: IssueType; alertId?: string }[]
 }

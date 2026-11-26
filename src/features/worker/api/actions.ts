@@ -66,7 +66,7 @@ export async function saveActions(input: ActionInput): Promise<SavedAction> {
   await batch.commit()
 
   const ackedAlertIds: string[] = []
-  if (input.result === 'call_ok') {
+  if (input.result === 'call_ok' || input.result === 'checked') {
     for (const issue of input.issues) {
       if (!issue.alertId) continue
       try {

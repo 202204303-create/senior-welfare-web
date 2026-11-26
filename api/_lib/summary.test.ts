@@ -397,3 +397,11 @@ describe('/api/refresh-summary: 복지사만, 담당 가족만', () => {
     assert.equal(summaryDoc()?.elderName, '김영수')
   })
 })
+
+test("'확인했어요'(전화 없이 확인)도 통화 · 이상 없음처럼 이슈를 닫는다", () => {
+  const closed = build('10:30', { actions: [act({ issueType: 'wake-missed', result: 'checked' })] })
+  assert.equal(
+    closed.openIssues.some((i) => i.type === 'wake-missed'),
+    false,
+  )
+})

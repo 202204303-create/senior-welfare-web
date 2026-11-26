@@ -340,7 +340,7 @@ export function WorkerPage() {
           className="fixed inset-x-3 bottom-4 z-40 mx-auto flex max-w-md items-center gap-3 rounded-xl bg-slate-900 px-4 py-3 text-white shadow-lg"
         >
           <p className="min-w-0 flex-1">
-            {undo.name} · {undo.label}(으)로 기록했어요.
+            {undo.name} 님 기록 저장: {undo.label}
           </p>
           <button
             type="button"

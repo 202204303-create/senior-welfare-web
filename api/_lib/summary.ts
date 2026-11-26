@@ -10,7 +10,9 @@ import { kstClock, normalizeFamily, toMinutes, type DayDoc, type FamilyDoc } fro
 export type Grade = 'P1' | 'P2' | 'P3' | 'P4' | 'P5'
 export type IssueType = 'sos' | 'guardian-unacked' | 'wake-missed' | 'med-repeat' | 'no-contact'
 
-export type ActionResult = 'call_ok' | 'call_no_answer' | 'visit_needed' | 'guardian_notified' | 'other'
+/** checked: 전화 없이 '확인했어요' (보호자가 이미 연락했거나 상황을 알고 있을 때). call_ok 처럼 이슈를 닫음 */
+export type ActionResult =
+  'call_ok' | 'checked' | 'call_no_answer' | 'visit_needed' | 'guardian_notified' | 'other'
 
 /** 복지사가 남긴 처리 기록: families/{code}/actions/{id} (추가만 가능) */
 export interface ActionDoc {
@@ -172,7 +174,7 @@ export function buildSummary({
   // 통화로 이상 없음을 확인한 처리는 그 이후의 이슈를 닫습니다. (이슈가 생긴 시각 이후의 처리만)
   const closedByAction = (type: IssueType, since: string, alertId?: string) => {
     const a = actionFor(type, alertId)
-    return Boolean(a && a.result === 'call_ok' && a.at >= since)
+    return Boolean(a && (a.result === 'call_ok' || a.result === 'checked') && a.at >= since)
   }
 
   // P1 긴급: 아직 아무도 확인하지 않은 긴급 요청 (24시간 안)
