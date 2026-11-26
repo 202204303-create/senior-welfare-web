@@ -10,6 +10,8 @@ export interface PushMessage {
   url: string
   /** 같은 tag 의 알림은 하나로 합쳐집니다 */
   tag: string
+  /** 급한 정도: urgent(긴급, 강한 진동) · warn(확인 필요, 보통 진동). 휴대폰에서 진동·표시를 다르게 합니다. */
+  level?: 'urgent' | 'warn'
 }
 
 const DEAD_TOKEN = new Set([
@@ -49,7 +51,7 @@ export async function pushToFamily(
   const res = await messaging.sendEachForMulticast({
     tokens,
     // 표시는 서비스 워커(public/push-sw.js)가 직접 하므로 data 로만 보냅니다.
-    data: { title, body: msg.body, url: msg.url, tag: msg.tag },
+    data: { title, body: msg.body, url: msg.url, tag: msg.tag, level: msg.level ?? 'warn' },
     webpush: { headers: { Urgency: 'high', TTL: String(24 * 60 * 60) } },
   })
   // 진단용 기록: 몇 대에 보냈고 실패 이유가 무엇인지 (기기 토큰은 남기지 않습니다)

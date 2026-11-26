@@ -8,19 +8,29 @@ import {
   WakeUpCard,
 } from '@/features/care/components/CareWidgets'
 import { FirstSetup } from '@/features/care/components/FirstSetup'
+import { useNow } from '@/shared/hooks/useNow'
 import { InfoCard } from '@/shared/ui'
 import { useUserStore } from '@/features/auth/store/useUserStore'
 
 /** 어르신 첫 화면: 아침 안부 → 오늘의 약 → 긴급 요청 순서로 크게 보여 줍니다. */
 export function DashboardPage() {
   const profile = useUserStore((s) => s.profile)
-  const today = new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' })
+  // 화면에 큰 시계를 보여 줍니다. 약 시간과 비교하기 쉽도록 (10초마다 새로 고침)
+  const now = useNow(10_000)
+  const today = now.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' })
+  const time = now.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })
 
   return (
     <div className="mx-auto max-w-2xl animate-fade-up space-y-5">
       <div>
-        <p className="text-base font-semibold text-brand-600">{today}</p>
-        <h1 className="text-[1.75rem] font-extrabold leading-tight tracking-tight">
+        <p className="text-lg font-bold text-brand-600">{today}</p>
+        <p
+          className="mt-0.5 text-5xl font-black tracking-tight text-ink tabular-nums"
+          aria-label={`지금 시각 ${time}`}
+        >
+          <time dateTime={now.toISOString()}>{time}</time>
+        </p>
+        <h1 className="mt-2 text-[1.75rem] font-extrabold leading-tight tracking-tight">
           {profile.name} 님, 안녕하세요
         </h1>
       </div>

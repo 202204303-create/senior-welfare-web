@@ -8,8 +8,7 @@ import {
   saveHeartbeat,
   watchAlerts,
 } from '@/features/care/api/family'
-import { newCheckins } from '@/features/care/lib/checkins'
-import { requestCheckinPush, requestGuardianPush } from '@/shared/api/push'
+import { requestGuardianPush } from '@/shared/api/push'
 import { todayKey, useCareStore, type DayRecord } from '@/features/care/store/useCareStore'
 import { useUserStore } from '@/features/auth/store/useUserStore'
 
@@ -76,12 +75,8 @@ export function useCareSync() {
         Promise.all(
           changed.map(async ([k, rec]) => {
             await saveDayRecord(familyCode, k, rec)
-            // 방금 '일어났어요'를 누른 것만 보호자 휴대폰으로 알립니다. (처음 불러올 때와 지난 날짜는 제외)
-            // '먹었어요'는 알림을 보내지 않습니다: 잘 드신 것까지 매번 울리면 보호자에게 소음이 됩니다. (교수님 피드백)
-            // 복용 여부는 보호자 화면에 실시간으로 보이고, 놓쳤을 때만 알림이 갑니다.
-            if (!prev || k !== todayKey()) return
-            for (const c of newCheckins(prev[k], rec))
-              if (c.kind === 'wake') requestCheckinPush(familyCode, k, c.kind, c.medId)
+            // '일어났어요'·'먹었어요' 같은 좋은 소식은 보호자에게 알림을 보내지 않습니다. (교수님 피드백: 알림이 소음이 됨)
+            // 보호자 화면에는 실시간으로 보이고, 기상 확인이 없거나 약을 놓쳤을 때만 알림이 갑니다.
           }),
         ),
       )
