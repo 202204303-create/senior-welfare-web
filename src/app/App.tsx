@@ -9,6 +9,8 @@ import { LoginPage } from '@/features/auth/pages/LoginPage'
 import { MyPage } from '@/features/dashboard/pages/MyPage'
 import { NotFoundPage } from '@/shared/pages/NotFoundPage'
 import { WorkerPage } from '@/features/worker/pages/WorkerPage'
+import { useSessionGuard } from '@/features/auth/hooks/useSessionGuard'
+import { isFirebaseAuth } from '@/features/auth/lib/authMode'
 import { homePathOf } from '@/features/auth/lib/demoAccounts'
 import { useUserStore } from '@/features/auth/store/useUserStore'
 
@@ -31,11 +33,26 @@ function RequireWorker({ children }: { children: ReactNode }) {
   return children
 }
 
+/**
+ * 보호자 화면. 시연용 계정 모드에서는 링크·가족 코드로 로그인 없이 들어올 수 있고,
+ * 계정 로그인 모드에서는 보호자 계정으로 로그인해야 합니다.
+ */
+function GuardianRoute() {
+  const isLoggedIn = useUserStore((s) => s.isLoggedIn)
+  const role = useUserStore((s) => s.role)
+  if (isFirebaseAuth) {
+    if (!isLoggedIn) return <Navigate to="/login" replace />
+    if (role !== 'guardian') return <Navigate to={homePathOf(role ?? 'elder')} replace />
+  }
+  return <GuardianPage />
+}
+
 export default function App() {
+  useSessionGuard()
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/guardian" element={<GuardianPage />} />
+      <Route path="/guardian" element={<GuardianRoute />} />
       <Route
         path="/worker"
         element={

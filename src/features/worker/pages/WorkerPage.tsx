@@ -1,7 +1,17 @@
-import { CheckCheck, Pill, ServerOff, ShieldAlert, ShieldCheck, Siren, Sun, Phone } from 'lucide-react'
+import {
+  CheckCheck,
+  Phone,
+  Pill,
+  ServerOff,
+  ShieldAlert,
+  ShieldCheck,
+  Siren,
+  Sun,
+  UserRoundX,
+} from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { LogoutButton } from '@/features/auth/components/LogoutButton'
-import { WORKER_FAMILY_CODES } from '@/features/auth/lib/demoAccounts'
+import { useAssignments } from '@/features/worker/hooks/useAssignments'
 import { ackAlert, watchAlerts, watchDays, watchFamily, type FamilyInfo } from '@/features/care/api/family'
 import { getMedStatus } from '@/features/care/hooks/useCareWatcher'
 import { findCareIssues, fromNow } from '@/features/care/lib/guardianIssues'
@@ -18,6 +28,7 @@ const fmtTime = (iso: string) =>
 
 /** 복지사 화면: 담당 어르신의 오늘 상태와 긴급 요청을 한곳에서 봅니다. (시연용: 담당 어르신은 코드에 고정) */
 export function WorkerPage() {
+  const { assignments, loading, error } = useAssignments()
   return (
     <div className="min-h-dvh">
       <header className="sticky top-0 z-30 border-b border-white/70 bg-white/60 backdrop-blur-xl">
@@ -43,7 +54,20 @@ export function WorkerPage() {
             desc="복지사 화면은 Firebase 설정이 있어야 동작해요."
           />
         ) : (
-          WORKER_FAMILY_CODES.map((code) => <ElderCard key={code} code={code} />)
+          <>
+            {loading && <LoadingList count={1} />}
+            {error && <ErrorState message={error} />}
+            {!loading && !error && assignments.length === 0 && (
+              <EmptyState
+                icon={<UserRoundX />}
+                title="담당 어르신이 아직 없어요"
+                desc="관리자가 담당 어르신을 배정하면 이곳에 나타나요."
+              />
+            )}
+            {assignments.map((a) => (
+              <ElderCard key={a.code} code={a.code} />
+            ))}
+          </>
         )}
       </main>
     </div>

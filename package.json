@@ -12,7 +12,8 @@
     "format:check": "prettier --check src",
     "typecheck": "tsc -b",
     "test:api": "tsx --test api/_lib/*.test.ts",
-    "typecheck:api": "tsc -p tsconfig.api.json"
+    "typecheck:api": "tsc -p tsconfig.api.json",
+    "test:rules": "npx --yes firebase-tools@15 emulators:exec --only firestore --project demo-neulbom-rules \"tsx --test firestore-tests/*.test.ts\""
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.5",
@@ -27,6 +28,7 @@
     "zustand": "^5.1.0"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^6.0.0",
     "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

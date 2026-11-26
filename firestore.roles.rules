@@ -1,0 +1,122 @@
+rules_version = '2';
+
+// 늘봄 Firestore 역할별 보안 규칙 (어르신 · 보호자 · 복지사)
+//
+// ⚠️ 이 파일은 계정 로그인(VITE_AUTH_MODE=firebase)을 켠 뒤에 게시합니다.
+//    지금 게시된 규칙은 firestore.rules(익명 로그인 + 가족 코드)입니다.
+//    먼저 게시하면 계정이 없는 사용자(기존 링크·로그인 없이 둘러보기)는 모두 막힙니다.
+//    적용 순서는 README "8. 사용·운영 가이드 > 계정 로그인으로 전환하기"를 보세요.
+//
+// 데이터 구조
+//   users/{uid}                                  역할(role)과 연결된 가족 코드(familyCode) — 서버(관리자)만 만듦
+//   workers/{uid}/assignments/{code}             복지사 담당 배정 — 서버(관리자)만 만듦
+//   families/{code}                              어르신 한 명
+//     days/{날짜}, alerts/{id}, pushTokens/{id}  어르신 기록, 알림, 알림 받을 기기
+//     summary/current                            서버가 만드는 요약 (복지사만 읽음)
+//     actions/{id}, notes/{id}                   복지사 처리 기록(추가만 가능), 특이사항
+//     checkinPushes, pushLog                     서버 전용 (클라이언트는 접근 불가)
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function profilePath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+    function hasProfile() {
+      return signedIn() && exists(profilePath());
+    }
+    function role() {
+      return get(profilePath()).data.role;
+    }
+    function myFamily() {
+      return get(profilePath()).data.familyCode;
+    }
+
+    function isElderOf(code) {
+      return hasProfile() && role() == 'elder' && myFamily() == code;
+    }
+    function isGuardianOf(code) {
+      return hasProfile() && role() == 'guardian' && myFamily() == code;
+    }
+    function isWorkerOf(code) {
+      return hasProfile() && role() == 'worker'
+        && exists(/databases/$(database)/documents/workers/$(request.auth.uid)/assignments/$(code));
+    }
+    function canSee(code) {
+      return isElderOf(code) || isGuardianOf(code) || isWorkerOf(code);
+    }
+
+    // 수정할 때 바뀌는 필드가 keys 안에 있는 것뿐인지
+    function onlyChanges(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
+    }
+    // 수정할 때 keys 안의 필드는 하나도 바뀌지 않는지
+    function keepsUnchanged(keys) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(keys);
+    }
+
+    // 내 정보와 담당 배정은 본인만 읽고, 만들기·고치기는 서버(관리자)만 합니다.
+    match /users/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+    match /workers/{uid}/assignments/{code} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    match /families/{code} {
+      // 가족 정보(약 목록 등)는 어르신만 고칩니다.
+      allow read: if canSee(code);
+      allow create, update: if isElderOf(code);
+      allow delete: if false;
+
+      match /days/{date} {
+        allow read: if canSee(code);
+        allow create, update: if isElderOf(code);
+        allow delete: if false;
+      }
+
+      match /alerts/{id} {
+        allow read: if canSee(code);
+        allow create: if isElderOf(code);
+        // 어르신은 보호자·복지사의 확인 표시(ackAt, ackBy)를 바꿀 수 없고,
+        // 보호자·복지사는 확인 표시 외에는 고칠 수 없습니다.
+        allow update: if (isElderOf(code) && keepsUnchanged(['ackAt', 'ackBy']))
+          || ((isGuardianOf(code) || isWorkerOf(code)) && onlyChanges(['ackAt', 'ackBy']));
+        allow delete: if false;
+      }
+
+      // 알림 받을 기기: 자기 역할로만 등록하고, 목록은 서버만 읽습니다.
+      match /pushTokens/{id} {
+        allow read: if false;
+        allow create, update: if (isElderOf(code) && request.resource.data.role == 'elder')
+          || (isGuardianOf(code) && request.resource.data.role == 'guardian')
+          || (isWorkerOf(code) && request.resource.data.role == 'worker');
+        allow delete: if false;
+      }
+
+      // 서버가 만드는 요약: 복지사만 읽음
+      match /summary/{doc} {
+        allow read: if isWorkerOf(code);
+        allow write: if false;
+      }
+
+      // 복지사 처리 기록: 추가만 가능(수정·삭제 불가), 작성자는 본인
+      match /actions/{id} {
+        allow read: if isWorkerOf(code);
+        allow create: if isWorkerOf(code) && request.resource.data.by == request.auth.uid;
+        allow update, delete: if false;
+      }
+
+      // 특이사항(고정 메모): 복지사가 추가·수정
+      match /notes/{id} {
+        allow read: if isWorkerOf(code);
+        allow create, update: if isWorkerOf(code);
+        allow delete: if false;
+      }
+    }
+  }
+}
