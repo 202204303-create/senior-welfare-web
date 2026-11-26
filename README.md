@@ -243,7 +243,7 @@ workers/{uid}/assignments/{code}         복지사 담당 배정 (이름·동·�
 | 11/24 | k367604-beep (김민준) | 화면 나누기: 아래 메뉴를 **홈 · 약 · 알림 · 내 정보** 4칸으로. 홈=매일 할 일(일어났어요·먹었어요·SOS), 약=약 추가·고치기, 알림=보호자 연결·알림 방법·보낸 알림(새 화면 `/alerts`). 홈의 오늘의 약은 전체 목록으로                                                                                                                                          | #29    |
 | 11/26 | 202204303-create      | 역할별 인터페이스 설계(어르신·보호자·복지사, 복지사 상세) 문서 `docs/role-interfaces.md` 추가와 README 6번 항목 정리                                                                                                                                                                                                                                       | -      |
 | 11/26 | 202204303-create      | README 재구성: 프로젝트 목적 · 사용자별(어르신·보호자·복지사) 프론트엔드 기획 · 백엔드 구현 계획(구현됨/해야 할 것/데이터 구조/권한) 중심으로 정리, 나머지는 뒤로 이동                                                                                                                                                                                     | #31    |
-| 11/26 | 202204303-create      | 계정 로그인·역할 규칙: Firebase 이메일 로그인(`VITE_AUTH_MODE=firebase`), `users/{uid}` 역할·가족 연결, 복지사 담당 배정 읽기, 역할별 규칙 `firestore.roles.rules`(에뮬레이터 시험 20개), 계정 만들기 `scripts/seed-accounts.mjs`. 켜는 순서는 README 8번                                                                                                  | -      |
+| 11/26 | 202204303-create      | 계정 로그인·역할 규칙: Firebase 이메일 로그인(`VITE_AUTH_MODE=firebase`), `users/{uid}` 역할·가족 연결, 복지사 담당 배정 읽기, 역할별 규칙 `firestore.roles.rules`(에뮬레이터 시험 20개), 계정 만들기 `scripts/seed-accounts.mjs`. 켜는 순서는 README 8번                                                                                                  | #34    |
 
 ### 남은 할 일
 
