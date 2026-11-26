@@ -35,7 +35,13 @@ import {
 } from '@/shared/ui'
 import { hasAssignedWorker } from '@/features/auth/lib/demoAccounts'
 import { PushPermission } from '@/features/care/components/PushPermission'
-import { ackAlert, watchAlerts, watchDays, watchFamily, type FamilyInfo } from '@/features/care/api/family'
+import {
+  ackAlertAsGuardian,
+  watchAlerts,
+  watchDays,
+  watchFamily,
+  type FamilyInfo,
+} from '@/features/care/api/family'
 import {
   buildGuardianTodos,
   findCareIssues,
@@ -45,7 +51,7 @@ import {
 import { STATUS_STYLE } from '@/features/care/lib/status'
 import { getMedStatus } from '@/features/care/hooks/useCareWatcher'
 import { AlertRow } from '@/features/care/components/AlertRow'
-import { alertLevelOf } from '@/features/care/lib/alertDisplay'
+import { alertLevelOf, guardianSeen, workerOnlyAck } from '@/features/care/lib/alertDisplay'
 import { todayKey, type AlertLog, type DayRecord } from '@/features/care/store/useCareStore'
 
 /**
@@ -106,6 +112,18 @@ const GUARDIAN_NOTIFY_DELAY_MS = 5000
 
 const fmtTime = (iso: string) =>
   new Date(iso).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })
+
+/** 지난 알림의 확인 기록: 복지사·보호자가 각각 언제 확인했는지 */
+const ackText = (a: AlertLog) => {
+  const parts: string[] = []
+  if (a.ackAt && a.ackBy && a.ackBy !== a.guardianAckBy && workerOnlyAckName(a.ackBy))
+    parts.push(`${fmtTime(a.ackAt)} ${a.ackBy} 확인`)
+  const gAt = a.guardianAckAt ?? (!workerOnlyAckName(a.ackBy) ? a.ackAt : undefined)
+  const gBy = a.guardianAckBy ?? a.ackBy ?? '보호자'
+  if (gAt) parts.push(`${fmtTime(gAt)} ${gBy} 확인`)
+  return parts.join(' · ')
+}
+const workerOnlyAckName = (name?: string) => name === '담당 사회복지사'
 
 /**
  * 보호자 화면: 가족 코드로 어르신의 오늘 기상·복약 상태와 알림을 실시간으로 봅니다.
@@ -471,7 +489,7 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
     setAcking(a.id)
     setAckError(null)
     try {
-      await ackAlert(code, a.id, family.guardianName.trim() || '보호자')
+      await ackAlertAsGuardian(code, a, family.guardianName.trim() || '보호자')
     } catch (e) {
       setAckError({ id: a.id, message: (e as Error).message })
     } finally {
@@ -512,9 +530,9 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
     )
 
   // 지운 알림은 숨기고(다시 보기 가능), 확인하지 않은 알림은 지울 수 없게 항상 보여 줍니다.
-  const visibleAlerts = showHidden ? alerts : alerts.filter((a) => !a.ackAt || !hidden.includes(a.id))
-  const ackedVisible = visibleAlerts.filter((a) => a.ackAt && !hidden.includes(a.id))
-  const hiddenCount = alerts.filter((a) => a.ackAt && hidden.includes(a.id)).length
+  const visibleAlerts = showHidden ? alerts : alerts.filter((a) => !guardianSeen(a) || !hidden.includes(a.id))
+  const ackedVisible = visibleAlerts.filter((a) => guardianSeen(a) && !hidden.includes(a.id))
+  const hiddenCount = alerts.filter((a) => guardianSeen(a) && hidden.includes(a.id)).length
   /** 알림이 나중에 해결됐는지: 기상 알림은 그날 일어나셨으면, 약 알림은 그 약을 드셨으면 */
   const resolvedText = (a: AlertLog): string | null => {
     const key = a.key ?? ''
@@ -537,7 +555,7 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
   )
 
   const todos = buildGuardianTodos(family, today, alerts, now, dateKey)
-  const pastAlerts = alerts.filter((a) => a.ackAt && (showHidden || !hidden.includes(a.id)))
+  const pastAlerts = alerts.filter((a) => guardianSeen(a) && (showHidden || !hidden.includes(a.id)))
   const nextMed = family.medications
     .filter(
       (m) => !today.takenMeds[m.id] && getMedStatus(m, undefined, now, family.medGraceMinutes) !== 'missed',
@@ -611,12 +629,14 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
                 text={t.text}
                 at={t.at}
                 status={
-                  t.alert && resolvedText(t.alert)
-                    ? { kind: 'resolved', text: `해결됨 · ${resolvedText(t.alert)}` }
-                    : {
-                        kind: 'pending',
-                        text: t.alert ? '아직 확인 전' : '어르신께 전화로 안부를 확인해 보세요',
-                      }
+                  t.alert && workerOnlyAck(t.alert)
+                    ? { kind: 'acked', text: `${fmtTime(t.alert.ackAt!)} ${t.alert.ackBy}가 먼저 확인했어요` }
+                    : t.alert && resolvedText(t.alert)
+                      ? { kind: 'resolved', text: `해결됨 · ${resolvedText(t.alert)}` }
+                      : {
+                          kind: 'pending',
+                          text: t.alert ? '아직 확인 전' : '어르신께 전화로 안부를 확인해 보세요',
+                        }
                 }
                 action={
                   t.alert && (
@@ -761,7 +781,7 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
                 at={a.at}
                 status={{
                   kind: 'acked',
-                  text: `${fmtTime(a.ackAt!)} ${a.ackBy ?? '보호자'} 확인${resolvedText(a) ? ` · ${resolvedText(a)}` : ''}`,
+                  text: [ackText(a), resolvedText(a)].filter(Boolean).join(' · '),
                 }}
                 action={
                   !hidden.includes(a.id) && (

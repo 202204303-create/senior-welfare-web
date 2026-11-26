@@ -70,6 +70,22 @@ export async function saveHeartbeat(code: string) {
 // ---------- 보호자 화면 → 서버 ----------
 
 /** 보호자가 알림을 확인했다고 남깁니다. 어르신 화면에 '확인했어요'가 표시됩니다. */
+/**
+ * 보호자의 확인. 복지사가 먼저 확인했으면(ackAt 있음) 그 기록은 그대로 두고 보호자 확인만 더합니다.
+ * 아무도 확인하지 않았으면 첫 확인(ackAt, 복지사 연결 기준)도 함께 남깁니다.
+ */
+export async function ackAlertAsGuardian(code: string, alert: AlertLog, name: string) {
+  await ensureSignedIn()
+  const at = new Date().toISOString()
+  await setDoc(
+    doc(familyRef(code), 'alerts', alert.id),
+    alert.ackAt
+      ? { guardianAckAt: at, guardianAckBy: name }
+      : { ackAt: at, ackBy: name, guardianAckAt: at, guardianAckBy: name },
+    { merge: true },
+  )
+}
+
 export async function ackAlert(code: string, alertId: string, ackBy: string) {
   await ensureSignedIn()
   await setDoc(

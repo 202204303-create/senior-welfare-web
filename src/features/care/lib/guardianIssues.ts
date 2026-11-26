@@ -1,5 +1,6 @@
 import type { FamilyInfo } from '@/features/care/api/family'
 import { getMedStatus } from '@/features/care/hooks/useCareWatcher'
+import { guardianSeen } from '@/features/care/lib/alertDisplay'
 import { timeToMinutes, type AlertLog, type DayRecord } from '@/features/care/store/useCareStore'
 
 /** 어르신 앱이 이 시간 넘게 열리지 않으면 보호자에게 알립니다. */
@@ -116,7 +117,7 @@ export function buildGuardianTodos(
   const used = new Set<string>()
   for (const i of findCareIssues(family, today, alerts, now, dateKey)) {
     const a = byKey.get(i.key)
-    if (a?.ackAt) continue // 보호자가 이미 확인한 일
+    if (a && guardianSeen(a)) continue // 보호자가 이미 확인한 일 (복지사만 확인했으면 보호자도 확인할 수 있게 남김)
     used.add(i.key)
     out.push({
       key: i.key,
@@ -128,7 +129,7 @@ export function buildGuardianTodos(
   }
   for (const a of alerts) {
     const key = a.key ?? a.id
-    if (a.ackAt || used.has(key)) continue
+    if (guardianSeen(a) || used.has(key)) continue
     used.add(key)
     out.push({ key, level: a.kind === 'sos' ? 'urgent' : 'warn', text: a.reason, at: a.at, alert: a })
   }

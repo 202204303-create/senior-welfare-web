@@ -82,10 +82,11 @@ service cloud.firestore {
       match /alerts/{id} {
         allow read: if canSee(code);
         allow create: if isElderOf(code);
-        // 어르신은 보호자·복지사의 확인 표시(ackAt, ackBy)를 바꿀 수 없고,
-        // 보호자·복지사는 확인 표시 외에는 고칠 수 없습니다.
-        allow update: if (isElderOf(code) && keepsUnchanged(['ackAt', 'ackBy']))
-          || ((isGuardianOf(code) || isWorkerOf(code)) && onlyChanges(['ackAt', 'ackBy']));
+        // 어르신은 보호자·복지사의 확인 표시(ackAt, ackBy, guardianAckAt, guardianAckBy)를 바꿀 수 없고,
+        // 보호자·복지사는 확인 표시 외에는 고칠 수 없습니다. (보호자 따로 확인 guardianAck* 는 보호자만)
+        allow update: if (isElderOf(code) && keepsUnchanged(['ackAt', 'ackBy', 'guardianAckAt', 'guardianAckBy']))
+          || (isGuardianOf(code) && onlyChanges(['ackAt', 'ackBy', 'guardianAckAt', 'guardianAckBy']))
+          || (isWorkerOf(code) && onlyChanges(['ackAt', 'ackBy']));
         allow delete: if false;
       }
 
