@@ -1,5 +1,4 @@
 import { cert, getApps, initializeApp } from 'firebase-admin/app'
-import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 import { getMessaging } from 'firebase-admin/messaging'
 
@@ -15,7 +14,17 @@ export function firebaseAdmin() {
     const json = raw.trim().startsWith('{') ? raw : Buffer.from(raw, 'base64').toString('utf8')
     initializeApp({ credential: cert(JSON.parse(json)) })
   }
-  return { db: getFirestore(), messaging: getMessaging(), auth: getAuth() }
+  return { db: getFirestore(), messaging: getMessaging() }
+}
+
+/**
+ * 로그인 토큰 확인용 Auth. 복지사 화면의 요약 새로고침에서만 쓰므로 필요할 때만 불러옵니다.
+ * (모든 서버 함수가 처음부터 불러오면, 이 모듈을 불러오다 실패할 때 알림·점검까지 함께 멈춥니다)
+ */
+export async function adminAuth() {
+  firebaseAdmin()
+  const { getAuth } = await import('firebase-admin/auth')
+  return getAuth()
 }
 
 export const isValidCode = (code: unknown): code is string =>
