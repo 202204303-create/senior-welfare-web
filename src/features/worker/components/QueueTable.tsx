@@ -58,7 +58,7 @@ export function QueueTable({
                   </span>
                 </td>
                 <td className={td}>
-                  <b>{c.row.displayName}</b>
+                  <b className="whitespace-nowrap">{c.row.displayName}</b>
                   {c.row.tags.length > 0 && (
                     <div className="text-[11px] text-slate-500">{c.row.tags.join(' · ')}</div>
                   )}
@@ -105,7 +105,7 @@ export function QueueTable({
                 <td className={td}>
                   <span className={`${tag} ${OK_TAG}`}>정상</span>
                 </td>
-                <td className={td}>{row.displayName}</td>
+                <td className={`${td} whitespace-nowrap`}>{row.displayName}</td>
                 <td className={`${td} text-[12px] text-slate-600`}>
                   기상 {summary.todayWakeAt ? fmtDateTime(summary.todayWakeAt, todayKey) : '전'} · 약{' '}
                   {summary.todayMedDone}/{summary.todayMedTotal}
@@ -120,7 +120,7 @@ export function QueueTable({
                 <td className={td}>
                   <span className={`${tag} border-slate-300 text-slate-500`}>대기</span>
                 </td>
-                <td className={td}>{row.displayName}</td>
+                <td className={`${td} whitespace-nowrap`}>{row.displayName}</td>
                 <td colSpan={2} className={`${td} text-[12px] text-slate-500`}>
                   요약 준비 중 (10분 안에 나타나요)
                 </td>
@@ -129,7 +129,7 @@ export function QueueTable({
           </tbody>
         </table>
       </div>
-      <div className="border-t border-slate-200 px-3 py-1.5 text-[11px] text-slate-500">
+      <div className="hidden border-t border-slate-200 px-3 py-1.5 text-[11px] text-slate-500 md:block">
         <span className={kbd}>J</span>/<span className={kbd}>K</span> 이동 · <span className={kbd}>/</span>{' '}
         검색 · <span className={kbd}>?</span> 단축키
       </div>

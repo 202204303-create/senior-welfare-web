@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { watchAlerts, watchDays, watchFamily, type FamilyInfo } from '@/features/care/api/family'
 import type { AlertLog, DayRecord } from '@/features/care/store/useCareStore'
 import { todayKey } from '@/features/care/store/useCareStore'
 import { watchActions, watchNotes, type Note } from '@/features/worker/api/chart'
+import { isSampleCode, sampleChart } from '@/features/worker/lib/sampleElders'
 import type { ChartAction } from '@/features/worker/lib/chart'
 
 export interface ElderChart {
@@ -22,6 +23,7 @@ export function useElderChart(code: string | null): ElderChart {
 
   useEffect(() => {
     if (!code) return
+    if (isSampleCode(code)) return // 예시 어르신은 서버를 읽지 않음 (아래에서 예시 기록을 씀)
     const since = todayKey(new Date(Date.now() - 6 * 86_400_000))
     const put = (patch: Partial<ElderChart>) =>
       setChart((prev) => ({ code, data: { ...(prev.code === code ? prev.data : EMPTY), ...patch } }))
@@ -36,5 +38,10 @@ export function useElderChart(code: string | null): ElderChart {
     return () => offs.forEach((off) => off())
   }, [code])
 
+  const sample = useMemo(
+    () => (code && isSampleCode(code) ? { ...EMPTY, ...sampleChart(code) } : null),
+    [code],
+  )
+  if (sample) return sample
   return chart.code === code ? chart.data : EMPTY
 }

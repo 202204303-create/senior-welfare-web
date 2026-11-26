@@ -33,7 +33,11 @@ export const DEFAULT_PROFILE: UserProfile = {
   livingAlone: true,
 }
 
-export const getAge = (birthYear: number) => new Date().getFullYear() - birthYear
+/** 만 나이(연 단위). 출생 연도가 비었거나 말이 안 되면 null */
+export const getAge = (birthYear: number) => {
+  const age = new Date().getFullYear() - birthYear
+  return birthYear >= 1900 && age >= 0 && age <= 120 ? age : null
+}
 
 export const useUserStore = create<UserState>()(
   persist(

@@ -233,15 +233,18 @@ export function ActionPanel({
           </p>
         )}
 
-        <button
-          type="button"
-          onClick={() => void save()}
-          disabled={saving}
-          className="flex w-full items-center justify-center gap-2 rounded bg-slate-900 px-3 py-2 font-bold text-white hover:bg-slate-800 disabled:opacity-60"
-        >
-          {saving ? '저장 중…' : '기록 저장'}
-          <span className={`${kbd} border-slate-400 bg-transparent text-slate-100`}>Ctrl+Enter</span>
-        </button>
+        {/* 휴대폰에서 스크롤해도 '기록 저장'이 항상 보이도록 아래에 붙여 둡니다. */}
+        <div className="sticky -bottom-3 -mx-3 bg-white px-3 pt-1 pb-3">
+          <button
+            type="button"
+            onClick={() => void save()}
+            disabled={saving}
+            className="flex w-full items-center justify-center gap-2 rounded bg-slate-900 px-3 py-2 font-bold text-white hover:bg-slate-800 disabled:opacity-60"
+          >
+            {saving ? '저장 중…' : '기록 저장'}
+            <span className={`${kbd} border-slate-400 bg-transparent text-slate-100`}>Ctrl+Enter</span>
+          </button>
+        </div>
       </div>
       <p className="border-t border-slate-200 px-3 py-1.5 text-[11px] text-slate-500">
         기록은 저장 후 고칠 수 없고, 틀리면 정정 기록을 추가해요. 작성자·시각은 자동으로 들어가요.

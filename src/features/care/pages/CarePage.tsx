@@ -1,6 +1,7 @@
 import { Pencil, Pill, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { BigButton, InfoCard, Modal, PageHeader, SelectField, StatusNote, TextField } from '@/shared/ui'
+import { ElderPushPrompt } from '@/features/care/components/ElderPushPrompt'
 import { useCareStore } from '@/features/care/store/useCareStore'
 import type { MedSlot, Medication } from '@/features/care/types'
 
@@ -53,6 +54,9 @@ export function CarePage() {
   return (
     <div className="max-w-2xl animate-fade-up">
       <PageHeader title="내 약" desc="드시는 약을 넣거나 고쳐요. 약을 드셨다는 체크는 홈에서 해요." />
+      <div className="mb-5 empty:hidden">
+        <ElderPushPrompt />
+      </div>
 
       <InfoCard title="약 목록" subtitle="약을 누르면 이름·시간을 고칠 수 있어요" icon={<Pill />}>
         {medNote && (
@@ -66,35 +70,37 @@ export function CarePage() {
           </p>
         ) : (
           <ul className="space-y-2">
-            {care.medications.map((m) => (
-              <li
-                key={m.id}
-                className="flex items-center gap-3 rounded-2xl bg-white/80 p-3 ring-1 ring-brand-100"
-              >
-                <button
-                  onClick={() => openEdit(m)}
-                  className="min-h-12 min-w-0 flex-1 rounded-xl text-left hover:bg-brand-50"
-                  aria-label={`${m.name} 고치기`}
+            {[...care.medications]
+              .sort((a, b) => a.time.localeCompare(b.time))
+              .map((m) => (
+                <li
+                  key={m.id}
+                  className="flex items-center gap-3 rounded-2xl bg-white/80 p-3 ring-1 ring-brand-100"
                 >
-                  <span className="block text-lg font-bold">{m.name}</span>
-                  <span className="flex flex-wrap items-center gap-1 text-base text-ink-soft">
-                    {m.slot} {m.time}
-                    {m.memo && ` · ${m.memo}`}
-                    <span className="ml-1 inline-flex items-center gap-1 whitespace-nowrap text-brand-600">
-                      <Pencil className="size-4" aria-hidden />
-                      고치기
+                  <button
+                    onClick={() => openEdit(m)}
+                    className="min-h-12 min-w-0 flex-1 rounded-xl text-left hover:bg-brand-50"
+                    aria-label={`${m.name} 고치기`}
+                  >
+                    <span className="block text-lg font-bold">{m.name}</span>
+                    <span className="flex flex-wrap items-center gap-1 text-base text-ink-soft">
+                      {m.slot} {m.time}
+                      {m.memo && ` · ${m.memo}`}
+                      <span className="ml-1 inline-flex items-center gap-1 whitespace-nowrap text-brand-600">
+                        <Pencil className="size-4" aria-hidden />
+                        고치기
+                      </span>
                     </span>
-                  </span>
-                </button>
-                <button
-                  onClick={() => setDeleteId(m.id)}
-                  className="grid size-12 place-items-center rounded-xl text-rose-500 hover:bg-rose-50"
-                  aria-label={`${m.name} 삭제`}
-                >
-                  <Trash2 className="size-6" />
-                </button>
-              </li>
-            ))}
+                  </button>
+                  <button
+                    onClick={() => setDeleteId(m.id)}
+                    className="grid size-12 place-items-center rounded-xl text-rose-500 hover:bg-rose-50"
+                    aria-label={`${m.name} 삭제`}
+                  >
+                    <Trash2 className="size-6" />
+                  </button>
+                </li>
+              ))}
           </ul>
         )}
         <BigButton fullWidth size="lg" icon={<Plus />} className="mt-4" onClick={openAdd}>
@@ -131,7 +137,7 @@ export function CarePage() {
             }}
           />
           <TextField
-            label="알림 시각"
+            label="드시는 시각"
             type="time"
             value={form.time}
             onChange={(e) => setForm({ ...form, time: e.target.value })}

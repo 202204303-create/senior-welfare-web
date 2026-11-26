@@ -61,7 +61,7 @@ export function WorkerPushSetup({ codes }: { codes: string[] }) {
     <button
       type="button"
       onClick={async () => setPermission(await requestPushPermission())}
-      className="flex items-center gap-1 rounded bg-slate-700 px-2 py-0.5 hover:bg-slate-600"
+      className="flex items-center gap-1 rounded bg-slate-700 px-2 py-0.5 whitespace-nowrap hover:bg-slate-600"
     >
       <Bell className="size-3.5" aria-hidden /> 긴급 알림 받기
     </button>

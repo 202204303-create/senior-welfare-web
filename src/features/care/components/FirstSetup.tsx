@@ -1,9 +1,9 @@
 import { Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { DEMO_FAMILY_CODE } from '@/features/auth/lib/demoAccounts'
 import { DEFAULT_PROFILE, useUserStore } from '@/features/auth/store/useUserStore'
-import { DEFAULT_MEDS, useCareStore } from '@/features/care/store/useCareStore'
+import { useSampleMode } from '@/features/care/hooks/useSampleMode'
+import { useCareStore } from '@/features/care/store/useCareStore'
 import { BigButton, TextField } from '@/shared/ui'
 
 /**
@@ -13,13 +13,12 @@ import { BigButton, TextField } from '@/shared/ui'
  */
 export function FirstSetup() {
   const navigate = useNavigate()
-  const { setupDone, familyCode, medications, finishSetup } = useCareStore()
+  const { finishSetup } = useCareStore()
   const { profile, updateProfile } = useUserStore()
   const [name, setName] = useState('')
+  const sampleMode = useSampleMode()
 
-  const hasSampleMeds = medications.some((m) => DEFAULT_MEDS.some((d) => d.id === m.id))
-  const hasSampleName = profile.name === DEFAULT_PROFILE.name
-  if (setupDone || familyCode === DEMO_FAMILY_CODE || (!hasSampleMeds && !hasSampleName)) return null
+  if (!sampleMode) return null
 
   const clean = name.trim()
   return (
@@ -45,6 +44,9 @@ export function FirstSetup() {
             phone: sample('phone'),
             guardianName: sample('guardianName'),
             guardianPhone: sample('guardianPhone'),
+            // 예시 출생 연도·'혼자 살아요'도 비웁니다. (내 정보에서 다시 넣기)
+            birthYear: profile.birthYear === DEFAULT_PROFILE.birthYear ? 0 : profile.birthYear,
+            livingAlone: profile.livingAlone === DEFAULT_PROFILE.livingAlone ? false : profile.livingAlone,
           })
           finishSetup(true)
           navigate('/care')

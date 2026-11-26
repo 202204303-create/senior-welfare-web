@@ -12,6 +12,12 @@ export const DEMO_FAMILY_CODE = 'NEULBM'
 /** 복지사 계정이 담당하는 가족 코드 목록 */
 export const WORKER_FAMILY_CODES = [DEMO_FAMILY_CODE]
 
+/**
+ * 이 가족에 담당 복지사가 있는지. 지금은 시연용 복지사가 맡은 가족만 해당합니다.
+ * (담당이 없는 어르신께 '복지사에게도 알렸어요'라고 사실과 다르게 말하지 않기 위해 씀)
+ */
+export const hasAssignedWorker = (code: string) => WORKER_FAMILY_CODES.includes(code)
+
 /** 보호자 화면(GuardianPage)이 가족 코드를 기억해 두는 저장 키. GuardianPage 의 CODE_KEY 와 같아야 합니다. */
 export const GUARDIAN_CODE_KEY = 'neulbom-guardian-code'
 

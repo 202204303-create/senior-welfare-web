@@ -3,6 +3,7 @@ import { ackAlert } from '@/features/care/api/family'
 import { isFirebaseAuth } from '@/features/auth/lib/authMode'
 import type { NextAction } from '@/features/worker/lib/chart'
 import type { ActionResult, OpenIssue } from '@/features/worker/types'
+import { isSampleCode } from '@/features/worker/lib/sampleElders'
 import { ensureSignedIn, getDb, getIdToken } from '@/shared/api/firebase'
 
 /** 어르신 화면에 "OO 님이 확인했어요"로 보이는 이름 */
@@ -33,6 +34,9 @@ export interface SavedAction {
  * 통화 · 이상 없음이면 관련 알림에 "확인했어요"를 남겨 보호자·어르신 화면에도 반영합니다.
  */
 export async function saveActions(input: ActionInput): Promise<SavedAction> {
+  // 예시 어르신(시연용)은 서버에 저장하지 않고, 이 화면에서만 처리된 것으로 보여 줍니다.
+  if (isSampleCode(input.code))
+    return { code: input.code, at: new Date().toISOString(), actionIds: [], ackedAlertIds: [] }
   const user = await ensureSignedIn()
   const db = getDb()
   if (!db) throw new Error('Firebase 설정이 없습니다.')
@@ -82,6 +86,7 @@ export async function saveActions(input: ActionInput): Promise<SavedAction> {
  * 우리가 남긴 확인 표시는 지웁니다.
  */
 export async function undoActions(saved: SavedAction): Promise<void> {
+  if (isSampleCode(saved.code)) return
   const user = await ensureSignedIn()
   const db = getDb()
   if (!db) throw new Error('Firebase 설정이 없습니다.')
@@ -114,6 +119,7 @@ export async function undoActions(saved: SavedAction): Promise<void> {
  * 실패해도 10분마다 도는 서버 확인이 따라잡으므로 화면 동작에는 영향이 없습니다.
  */
 export async function refreshSummaryNow(code: string) {
+  if (isSampleCode(code)) return
   if (!isFirebaseAuth) return
   try {
     const token = await getIdToken()
