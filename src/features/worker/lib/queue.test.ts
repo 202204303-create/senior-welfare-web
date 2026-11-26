@@ -33,6 +33,7 @@ const summary = (issues: OpenIssue[], extra: Partial<Summary> = {}): Summary => 
 const row = (code: string, name: string, s: Summary | null, extra: Partial<QueueRow> = {}): QueueRow => ({
   code,
   displayName: name,
+  dong: '',
   tags: [],
   pinnedToday: false,
   summary: s,

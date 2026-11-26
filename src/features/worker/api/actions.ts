@@ -1,6 +1,7 @@
 import { collection, deleteField, doc, getDoc, serverTimestamp, writeBatch } from 'firebase/firestore'
 import { ackAlert } from '@/features/care/api/family'
 import { isFirebaseAuth } from '@/features/auth/lib/authMode'
+import type { NextAction } from '@/features/worker/lib/chart'
 import type { ActionResult, OpenIssue } from '@/features/worker/types'
 import { ensureSignedIn, getDb, getIdToken } from '@/shared/api/firebase'
 
@@ -12,8 +13,10 @@ export interface ActionInput {
   issues: OpenIssue[]
   result: ActionResult
   note?: string
-  /** 재시도 예정 시각 (ISO) — 받지 않음일 때 */
+  /** 다음 일정 (ISO): 재통화·방문 예정 시각 */
   followUpAt?: string
+  /** 다음 행동 */
+  nextAction?: NextAction
   templateId?: string
 }
 
@@ -36,7 +39,9 @@ export async function saveActions(input: ActionInput): Promise<SavedAction> {
   const at = new Date().toISOString()
   const batch = writeBatch(db)
   const actionIds: string[] = []
-  for (const issue of input.issues) {
+  // 이슈가 없으면(정상 어르신 정기 통화 등) 상담 기록 한 건만 남깁니다.
+  const targets: (OpenIssue | null)[] = input.issues.length ? input.issues : [null]
+  for (const issue of targets) {
     const ref = doc(collection(db, 'families', input.code, 'actions'))
     actionIds.push(ref.id)
     batch.set(ref, {
@@ -44,12 +49,13 @@ export async function saveActions(input: ActionInput): Promise<SavedAction> {
       createdAt: serverTimestamp(),
       by: user.uid,
       byName: WORKER_NAME,
-      type: '이슈처리',
+      type: issue ? '이슈처리' : '상담',
       result: input.result,
-      issueType: issue.type,
-      ...(issue.alertId ? { alertId: issue.alertId } : {}),
+      ...(issue ? { issueType: issue.type } : {}),
+      ...(issue?.alertId ? { alertId: issue.alertId } : {}),
       ...(input.note ? { note: input.note } : {}),
       ...(input.followUpAt ? { followUpAt: input.followUpAt } : {}),
+      ...(input.nextAction && input.nextAction !== 'none' ? { nextAction: input.nextAction } : {}),
       ...(input.templateId ? { templateId: input.templateId } : {}),
     })
   }

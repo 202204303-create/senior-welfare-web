@@ -44,6 +44,8 @@ export interface Summary {
 export interface QueueRow {
   code: string
   displayName: string
+  /** 동네(동). 담당 배정에 적혀 있으면 표시 */
+  dong: string
   tags: string[]
   pinnedToday: boolean
   /** 아직 요약이 없으면 null (서버가 처음 만들기 전) */
