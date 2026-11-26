@@ -11,7 +11,12 @@ export interface PushMessage {
   /** 같은 tag 의 알림은 하나로 합쳐집니다 */
   tag: string
   /** 급한 정도: urgent(긴급, 강한 진동) · warn(확인 필요, 보통 진동). 휴대폰에서 진동·표시를 다르게 합니다. */
-  level?: 'urgent' | 'warn'
+  level?: 'urgent' | 'warn' | 'info'
+}
+
+export interface PushOptions {
+  /** 아침 안부 알림을 켠 보호자 기기에만 보냄 (pushTokens 문서의 morning: true) */
+  onlyMorning?: boolean
 }
 
 const DEAD_TOKEN = new Set([
@@ -29,13 +34,17 @@ export async function pushToFamily(
   code: string,
   role: PushRole,
   msg: PushMessage,
+  options: PushOptions = {},
 ): Promise<number> {
-  const snap = await db
+  const all = await db
     .collection('families')
     .doc(code)
     .collection('pushTokens')
     .where('role', '==', role)
     .get()
+  // 아침 안부처럼 '켠 사람만' 받는 알림은 기기 문서의 표시로 거릅니다. (색인이 필요 없도록 코드에서 거름)
+  const docs = options.onlyMorning ? all.docs.filter((d) => d.get('morning') === true) : all.docs
+  const snap = { docs, empty: docs.length === 0 }
   if (snap.empty) {
     console.log(JSON.stringify({ push: 'no-devices', code, role }))
     return 0

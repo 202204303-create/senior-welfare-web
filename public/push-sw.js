@@ -21,14 +21,17 @@ self.addEventListener('push', (event) => {
       // urgent: 긴급 요청(SOS) — 길고 강한 진동, 같은 tag 라도 다시 울림
       // warn:   기상·복약 미확인 — 보통 진동
       const urgent = data.level === 'urgent'
+      // info: 아침 안부처럼 좋은 소식 — 소리·진동 없이 알림 목록에만 조용히
+      const quiet = data.level === 'info'
       await self.registration.showNotification(data.title || '늘봄', {
         body: data.body || '',
         icon: '/pwa-192x192.png',
         badge: '/pwa-192x192.png',
         tag: data.tag || undefined,
         renotify: Boolean(data.tag) && urgent,
-        vibrate: urgent ? [500, 150, 500, 150, 900] : [250, 120, 250],
-        requireInteraction: true, // 직접 닫을 때까지 남김
+        vibrate: quiet ? undefined : urgent ? [500, 150, 500, 150, 900] : [250, 120, 250],
+        silent: quiet,
+        requireInteraction: !quiet, // 급한 알림은 직접 닫을 때까지 남김
         data: { url: data.url || '/' },
       })
     })(),
