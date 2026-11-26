@@ -55,7 +55,9 @@ export class FakeDb {
     }
     return doc
   }
-  async runTransaction<T>(fn: (tx: { get: (r: DocRef) => Promise<DocSnap>; update: (r: DocRef, d: Data) => void }) => Promise<T>) {
+  async runTransaction<T>(
+    fn: (tx: { get: (r: DocRef) => Promise<DocSnap>; update: (r: DocRef, d: Data) => void }) => Promise<T>,
+  ) {
     const writes: [DocRef, Data][] = []
     const result = await fn({ get: (r) => r.get(), update: (r, d) => void writes.push([r, d]) })
     for (const [r, d] of writes) await r.update(d)
@@ -147,7 +149,8 @@ export class FakeMessaging {
   dead = new Set<string>()
   async sendEachForMulticast(msg: { tokens: string[]; data: Record<string, string> }) {
     const responses = msg.tokens.map((token) => {
-      if (this.dead.has(token)) return { success: false, error: { code: 'messaging/registration-token-not-registered' } }
+      if (this.dead.has(token))
+        return { success: false, error: { code: 'messaging/registration-token-not-registered' } }
       this.sent.push({ token, data: msg.data })
       return { success: true }
     })

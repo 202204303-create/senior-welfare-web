@@ -12,7 +12,10 @@ export interface PushMessage {
   tag: string
 }
 
-const DEAD_TOKEN = new Set(['messaging/registration-token-not-registered', 'messaging/invalid-registration-token'])
+const DEAD_TOKEN = new Set([
+  'messaging/registration-token-not-registered',
+  'messaging/invalid-registration-token',
+])
 
 /**
  * 한 가족의 보호자 또는 어르신 기기로 휴대폰 알림을 보냅니다. (화면이 꺼져 있어도 도착)
@@ -25,7 +28,12 @@ export async function pushToFamily(
   role: PushRole,
   msg: PushMessage,
 ): Promise<number> {
-  const snap = await db.collection('families').doc(code).collection('pushTokens').where('role', '==', role).get()
+  const snap = await db
+    .collection('families')
+    .doc(code)
+    .collection('pushTokens')
+    .where('role', '==', role)
+    .get()
   if (snap.empty) {
     console.log(JSON.stringify({ push: 'no-devices', code, role }))
     return 0

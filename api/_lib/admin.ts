@@ -18,4 +18,5 @@ export function firebaseAdmin() {
   return { db: getFirestore(), messaging: getMessaging(), auth: getAuth() }
 }
 
-export const isValidCode = (code: unknown): code is string => typeof code === 'string' && /^[A-Z0-9]{6}$/.test(code)
+export const isValidCode = (code: unknown): code is string =>
+  typeof code === 'string' && /^[A-Z0-9]{6}$/.test(code)

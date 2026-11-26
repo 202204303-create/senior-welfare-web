@@ -5,7 +5,7 @@
  * 등급 규칙은 docs/role-interfaces.md 3.1 과 README 2.3 을 따릅니다.
  */
 import type { Firestore } from 'firebase-admin/firestore'
-import { kstClock, toMinutes, type DayDoc, type FamilyDoc } from './care.js'
+import { kstClock, normalizeFamily, toMinutes, type DayDoc, type FamilyDoc } from './care.js'
 
 export type Grade = 'P1' | 'P2' | 'P3' | 'P4' | 'P5'
 export type IssueType = 'sos' | 'guardian-unacked' | 'wake-missed' | 'med-repeat' | 'no-contact'
@@ -155,13 +155,17 @@ export function buildSummary({
   const issues: OpenIssue[] = []
 
   // 정정 기록이 가리키는 처리와 정정 기록 자체는 빼고 봅니다.
-  const corrected = new Set(actions.filter((a) => a.type === '정정' && a.corrects).map((a) => a.corrects as string))
+  const corrected = new Set(
+    actions.filter((a) => a.type === '정정' && a.corrects).map((a) => a.corrects as string),
+  )
   const effective = actions
     .filter((a) => a.type !== '정정' && !corrected.has(a.id) && a.result)
     .sort((a, b) => b.at.localeCompare(a.at))
   const lastActionAt = effective[0]?.at
   const toLast = (a: ActionDoc | undefined): LastAction | undefined =>
-    a && a.result ? { result: a.result, at: a.at, byName: a.byName ?? '복지사', followUpAt: a.followUpAt } : undefined
+    a && a.result
+      ? { result: a.result, at: a.at, byName: a.byName ?? '복지사', followUpAt: a.followUpAt }
+      : undefined
   // 같은 이슈(알림 또는 이슈 종류)에 대한 가장 최근 처리
   const actionFor = (type: IssueType, alertId?: string) =>
     effective.find((a) => (alertId && a.alertId === alertId) || (!alertId && a.issueType === type))
@@ -256,7 +260,9 @@ export function buildSummary({
     })
   }
 
-  issues.sort((a, b) => GRADE_ORDER.indexOf(a.grade) - GRADE_ORDER.indexOf(b.grade) || a.since.localeCompare(b.since))
+  issues.sort(
+    (a, b) => GRADE_ORDER.indexOf(a.grade) - GRADE_ORDER.indexOf(b.grade) || a.since.localeCompare(b.since),
+  )
   const highestGrade = issues[0]?.grade ?? null
 
   return {
@@ -303,7 +309,7 @@ export async function readSnapshot(
     ref.collection('alerts').where('at', '>=', since).get(),
     ref.collection('actions').where('at', '>=', since).get(),
   ])
-  const fam = family ?? (famSnap?.exists ? (famSnap.data() as FamilyWithSeen) : undefined)
+  const fam = normalizeFamily(family ?? (famSnap?.exists ? (famSnap.data() as FamilyWithSeen) : undefined))
   if (!fam) return null
   return {
     family: fam,
@@ -330,7 +336,9 @@ export async function refreshSummary(
     await db.collection('families').doc(code).collection('summary').doc('current').set(summary)
     return summary
   } catch (e) {
-    console.log(JSON.stringify({ summary: 'failed', code, error: String((e as Error).message).slice(0, 200) }))
+    console.log(
+      JSON.stringify({ summary: 'failed', code, error: String((e as Error).message).slice(0, 200) }),
+    )
     return null
   }
 }
