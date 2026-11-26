@@ -24,13 +24,7 @@ export function DashboardPage() {
     <div className="mx-auto max-w-2xl animate-fade-up space-y-5">
       <div>
         <p className="text-lg font-bold text-brand-600">{today}</p>
-        <p
-          className="mt-0.5 text-5xl font-black tracking-tight text-ink tabular-nums"
-          aria-label={`지금 시각 ${time}`}
-        >
-          <time dateTime={now.toISOString()}>{time}</time>
-        </p>
-        <h1 className="mt-2 text-[1.75rem] font-extrabold leading-tight tracking-tight">
+        <h1 className="mt-0.5 text-[1.75rem] font-extrabold leading-tight tracking-tight">
           {profile.name} 님, 안녕하세요
         </h1>
       </div>
@@ -39,6 +33,17 @@ export function DashboardPage() {
 
       {/* 가장 중요한 '일어났어요'가 첫 화면에 바로 보이도록 맨 위에 둡니다. */}
       <WakeUpCard />
+
+      {/* 큰 시계는 약 시간과 바로 비교할 수 있도록 '오늘의 약' 바로 위에 둡니다. */}
+      <p
+        className="flex items-baseline justify-center gap-3 rounded-3xl bg-white/80 py-3 text-ink ring-1 ring-brand-100"
+        aria-label={`지금 시각 ${time}`}
+      >
+        <span className="text-lg font-bold text-ink-soft">지금</span>
+        <time dateTime={now.toISOString()} className="text-5xl font-black tracking-tight tabular-nums">
+          {time}
+        </time>
+      </p>
 
       <InfoCard
         title="오늘의 약"
