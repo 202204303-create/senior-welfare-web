@@ -40,7 +40,8 @@ export async function sendAlertPush(db: Firestore, messaging: Messaging, code: s
 
   const sos = alert.kind === 'sos'
   const sent = await pushToFamily(db, messaging, code, 'guardian', {
-    title: sos ? '늘봄 긴급 알림' : '늘봄 안부 알림',
+    title: sos ? '🚨 늘봄 긴급' : '⚠️ 늘봄 확인 필요',
+    level: sos ? 'urgent' : 'warn',
     body: alert.reason,
     url: `/guardian?code=${code}`,
     tag: alertId,
@@ -48,7 +49,8 @@ export async function sendAlertPush(db: Firestore, messaging: Messaging, code: s
   // 긴급 요청은 담당 복지사에게도 바로 보냅니다. (알림 정책: 복지사는 긴급·에스컬레이션만 받음)
   if (sos) {
     await pushToFamily(db, messaging, code, 'worker', {
-      title: '늘봄 긴급 알림',
+      title: '🚨 늘봄 긴급',
+      level: 'urgent',
       body: alert.reason,
       url: '/worker',
       tag: `${alertId}-worker`,

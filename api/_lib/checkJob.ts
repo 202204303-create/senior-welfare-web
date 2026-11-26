@@ -66,7 +66,8 @@ export async function runCheck(db: Firestore, messaging: Messaging, now: Date) {
           continue // 이미 있음 (동시에 실행된 경우)
         }
         await pushToFamily(db, messaging, code, 'guardian', {
-          title: '늘봄 안부 알림',
+          title: '⚠️ 늘봄 확인 필요',
+          level: 'warn',
           body: a.reason,
           url: `/guardian?code=${code}`,
           tag: id,
@@ -126,7 +127,8 @@ export async function runCheck(db: Firestore, messaging: Messaging, now: Date) {
         if (!first) continue
         const name = snap.family.elderName
         await pushToFamily(db, messaging, code, 'worker', {
-          title: '늘봄 보호자 미확인',
+          title: '⚠️ 늘봄 보호자 미확인',
+          level: 'warn',
           body: `${name} 님: ${a.reason} (보호자가 오래 확인하지 않았어요)`,
           url: '/worker',
           tag: `${a.id}-esc`,
