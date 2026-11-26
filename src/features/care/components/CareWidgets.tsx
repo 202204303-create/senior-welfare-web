@@ -10,6 +10,8 @@ import { STATUS_STYLE } from '@/features/care/lib/status'
 import { useNow } from '@/shared/hooks/useNow'
 import { timeToMinutes, todayKey, useCareStore } from '@/features/care/store/useCareStore'
 import { BigButton, Modal, StatusNote } from '@/shared/ui'
+import { useSampleMode } from '@/features/care/hooks/useSampleMode'
+import { hasAssignedWorker } from '@/features/auth/lib/demoAccounts'
 
 const fmtTime = (iso: string) =>
   new Date(iso).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })
@@ -101,6 +103,8 @@ export function MedChecklist({ compact = false }: { compact?: boolean }) {
   // 실수로 눌러 복용 기록이 지워지지 않도록, 취소할 때는 한 번 더 묻습니다.
   const [undoId, setUndoId] = useState<string | null>(null)
   const undoMed = medications.find((m) => m.id === undoId)
+  // 첫 설정 전(예시 약)에는 '먹었어요'를 누를 수 없게 합니다. (예시 약에 기록이 남지 않게)
+  const sample = useSampleMode()
 
   // 지금 드실 약·다가오는 약을 위에, 시간이 지난 약(놓친 약 → 드신 약)은 아래로 내립니다. (교수님 피드백)
   // 방금 '먹었어요'를 누른 약은 몇 초 동안 제자리에 두고 '잘 드셨어요'를 보여 준 뒤 아래로 옮깁니다.
@@ -143,6 +147,11 @@ export function MedChecklist({ compact = false }: { compact?: boolean }) {
 
   return (
     <>
+      {sample && (
+        <p className="mb-3 rounded-2xl bg-amber-50 p-3 text-base font-bold text-amber-900 ring-1 ring-amber-200">
+          아래는 예시 약이에요. 위에서 이름을 넣으면 내 약을 넣을 수 있어요.
+        </p>
+      )}
       <ul className="space-y-3">
         {list.map((med) => {
           const status = getMedStatus(med, taken[med.id], now, medGraceMinutes)
@@ -151,6 +160,7 @@ export function MedChecklist({ compact = false }: { compact?: boolean }) {
           return (
             <li key={med.id}>
               <button
+                disabled={sample}
                 onClick={() => {
                   if (isTaken) return setUndoId(med.id)
                   toggleMed(med.id)
@@ -212,7 +222,7 @@ export function MedChecklist({ compact = false }: { compact?: boolean }) {
                   </span>
                 )}
                 {/* 누를 수 있다는 것을 알 수 있도록 안 먹은 약에는 큰 '먹었어요' 표시 */}
-                {!isTaken && (
+                {!isTaken && !sample && (
                   <span
                     className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-600 text-lg font-bold text-white"
                     aria-hidden
@@ -285,7 +295,14 @@ export function MedProgress() {
   )
 }
 
+/** 긴급 요청을 받는 사람: 담당 복지사가 있을 때만 '복지사'를 함께 말합니다. */
+function useSosReceivers() {
+  const familyCode = useCareStore((s) => s.familyCode)
+  return hasAssignedWorker(familyCode) ? '보호자와 담당 복지사' : '보호자'
+}
+
 export function SOSButton({ className = '' }: { className?: string }) {
+  const receivers = useSosReceivers()
   const [open, setOpen] = useState(false)
   // 보낸 뒤에는 창을 바로 닫지 않고 '보냈어요'를 크게 보여 줍니다. (놀란 상황에서도 확실히 알 수 있게)
   const [sent, setSent] = useState(false)
@@ -314,7 +331,7 @@ export function SOSButton({ className = '' }: { className?: string }) {
               <span className="grid size-16 place-items-center rounded-full bg-emerald-500 text-white">
                 <Check className="size-9" strokeWidth={3} aria-hidden />
               </span>
-              <p className="text-xl font-extrabold text-emerald-800">보호자와 복지사에게 알렸어요</p>
+              <p className="text-xl font-extrabold text-emerald-800">{receivers}에게 알렸어요</p>
               <p className="text-base text-ink-soft">
                 보호자가 확인하면 긴급 버튼 아래에 표시돼요. (소리 없이)
               </p>
@@ -334,7 +351,7 @@ export function SOSButton({ className = '' }: { className?: string }) {
         ) : (
           <>
             <p className="mb-6 text-lg text-ink-soft">
-              보호자와 담당 사회복지사에게 지금 바로 알림을 보내요. 위급한 상황이면 119에 먼저 전화해 주세요.
+              {receivers}에게 지금 바로 알림을 보내요. 위급한 상황이면 119에 먼저 전화해 주세요.
             </p>
             <div className="space-y-3">
               <BigButton
@@ -421,6 +438,7 @@ const SOS_SHOW_MS = 3 * 60 * 60 * 1000 // 최근 3시간 안의 긴급 요청만
  * 보호자가 확인하면 이 자리에 조용히(소리·알림 없이) 표시합니다.
  */
 function SosStatus() {
+  const receivers = useSosReceivers()
   const now = useNow(30_000)
   const alerts = useCareStore((s) => s.alerts)
   const last = alerts.find((a) => a.kind === 'sos')
@@ -437,7 +455,7 @@ function SosStatus() {
           {last.ackBy ?? '보호자'}님이 확인했어요 · {fmtTime(last.ackAt)}
         </p>
       ) : (
-        <p className="mt-1 text-sm text-ink-soft">보호자와 담당 복지사에게 알렸어요.</p>
+        <p className="mt-1 text-sm text-ink-soft">{receivers}에게 알렸어요.</p>
       )}
     </div>
   )

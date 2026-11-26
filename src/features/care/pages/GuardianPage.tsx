@@ -22,7 +22,7 @@ import { useSearchParams } from 'react-router-dom'
 import { MAX_ELDERS, initialCodes, saveCodes, saveSelected } from '@/features/care/lib/guardianCodes'
 import { registerPushDevice, setMorningNotice } from '@/shared/api/push'
 import { LogoutButton } from '@/features/auth/components/LogoutButton'
-import { Logo } from '@/shared/layout/AppLayout'
+import { FontScaleButton, Logo } from '@/shared/layout/AppLayout'
 import { isFirebaseEnabled } from '@/shared/api/firebase'
 import { useNow } from '@/shared/hooks/useNow'
 import { useGuardianNoticeStore, type NoticeTone } from '@/shared/store/useNoticeStore'
@@ -37,6 +37,7 @@ import {
   StatusNote,
   TextField,
 } from '@/shared/ui'
+import { hasAssignedWorker } from '@/features/auth/lib/demoAccounts'
 import { PushPermission } from '@/features/care/components/PushPermission'
 import { ackAlert, watchAlerts, watchDays, watchFamily, type FamilyInfo } from '@/features/care/api/family'
 import { findCareIssues, fromNow, type CareIssue } from '@/features/care/lib/guardianIssues'
@@ -140,9 +141,10 @@ export function GuardianPage() {
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
           <Logo compact />
           <span className="flex shrink-0 items-center gap-1">
-            <span className="rounded-full bg-violet-100 px-3 py-1 text-sm font-bold whitespace-nowrap text-violet-700">
+            <span className="hidden rounded-full bg-violet-100 px-3 py-1 text-sm font-bold whitespace-nowrap text-violet-700 min-[420px]:inline">
               보호자 화면
             </span>
+            <FontScaleButton />
             <LogoutButton />
           </span>
         </div>
@@ -508,12 +510,20 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
             <b className="text-ink">{family.lastSeenAt ? fromNow(family.lastSeenAt, now) : '기록 없음'}</b>
           </p>
         </div>
-        <a
-          href={`tel:${family.elderPhone}`}
-          className="flex min-h-12 items-center gap-2 rounded-2xl bg-linear-to-br from-brand-400 to-brand-600 px-5 text-base font-bold text-white shadow-glass"
-        >
-          <Phone className="size-5" aria-hidden /> 어르신께 전화
-        </a>
+        {family.elderPhone.trim() ? (
+          <a
+            href={`tel:${family.elderPhone.trim()}`}
+            className="flex min-h-12 items-center gap-2 rounded-2xl bg-linear-to-br from-brand-400 to-brand-600 px-5 text-base font-bold text-white shadow-glass"
+          >
+            <Phone className="size-5" aria-hidden /> 어르신께 전화
+          </a>
+        ) : (
+          <p className="rounded-2xl bg-white/70 px-4 py-3 text-sm text-ink-soft ring-1 ring-brand-100">
+            어르신 번호가 아직 없어요
+            <br />
+            (어르신 앱 → 내 정보에서 넣어요)
+          </p>
+        )}
       </div>
 
       {/* 지금 상태 요약 */}
@@ -637,7 +647,8 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
       {/* 알림 */}
       <InfoCard title="받은 알림" icon={<BellRing />}>
         <div className="mb-4">
-          <PushPermission role="guardian" familyCode={code} />
+          {/* 휴대폰 알림 켜기 버튼은 맨 위 안내 상자에만 둡니다. (같은 버튼이 두 번 보이지 않게) */}
+          {!needPush && <PushPermission role="guardian" familyCode={code} />}
           <MorningToggle code={code} elderName={family.elderName} />
         </div>
         {visibleAlerts.length === 0 ? (
@@ -742,10 +753,13 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
           </button>
         )}
         <p className="mt-3 text-sm text-ink-soft">
-          확인한 알림은 '지우기'로 이 화면에서 지울 수 있어요. (확인 전인 알림은 먼저 '확인했어요'를 눌러
-          주세요) 이 화면을 켜 두시면 새 알림이 오는 즉시 화면 위쪽과 휴대폰 알림으로 알려 드려요. 화면 알림은
-          '확인했어요'를 누를 때까지 남아요. 30분 넘게 확인하지 않으면 담당 복지사에게도 알려요. 어르신 앱이
-          꺼져 있어도 기상·복약 미확인은 이 화면이 직접 알려 드려요.
+          '확인했어요'를 누른 알림은 '지우기'로 지울 수 있어요.
+          {hasAssignedWorker(code) && (
+            <>
+              <br />
+              30분 넘게 확인하지 않으면 담당 복지사에게도 알려요.
+            </>
+          )}
         </p>
       </InfoCard>
 
@@ -762,7 +776,14 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
           <tbody>
             {historyKeys.map((k) => {
               const d = days[k]
-              const taken = d ? family.medications.filter((m) => d.takenMeds[m.id]).length : 0
+              // 그날 이미 등록돼 있던 약만 셉니다. (오늘 넣은 약을 지난 날짜에 '안 드심'으로 세지 않게)
+              const meds = family.medications.filter(
+                (m) => !m.createdAt || todayKey(new Date(m.createdAt)) <= k,
+              )
+              const dayTotal = meds.length
+              const taken = d ? meds.filter((m) => d.takenMeds[m.id]).length : 0
+              // 어르신이 늘봄을 쓰기 전 날짜: 기록도, 등록된 약도 없음
+              const beforeUse = !d && k !== dateKey && dayTotal === 0
               const label = new Date(`${k}T12:00:00`).toLocaleDateString('ko-KR', {
                 month: 'numeric',
                 day: 'numeric',
@@ -772,7 +793,9 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
                 <tr key={k} className="border-t border-brand-100">
                   <td className="py-2.5 font-bold">{k === dateKey ? `${label} (오늘)` : label}</td>
                   <td className="py-2.5">
-                    {d?.wakeUpAt ? (
+                    {beforeUse ? (
+                      <span className="text-ink-soft">사용 전</span>
+                    ) : d?.wakeUpAt ? (
                       fmtTime(d.wakeUpAt)
                     ) : k === dateKey && !wakeOverdue ? (
                       <span className="text-ink-soft">기다리는 중</span>
@@ -783,16 +806,20 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
                     )}
                   </td>
                   <td className="py-2.5 text-right">
-                    <span className={taken === total ? 'font-bold text-emerald-700' : ''}>
-                      {taken} / {total}
-                    </span>
+                    {beforeUse ? (
+                      <span className="text-ink-soft">—</span>
+                    ) : (
+                      <span className={taken === dayTotal ? 'font-bold text-emerald-700' : ''}>
+                        {taken} / {dayTotal}
+                      </span>
+                    )}
                   </td>
                 </tr>
               )
             })}
           </tbody>
         </table>
-        <p className="mt-2 text-sm text-ink-soft">복약 개수는 지금 등록된 약 목록 기준이에요.</p>
+        <p className="mt-2 text-sm text-ink-soft">복약 개수는 그날 등록돼 있던 약 기준이에요.</p>
       </InfoCard>
 
       <p className="text-center text-sm text-ink-soft">

@@ -1,6 +1,17 @@
-import { BellRing, ChevronRight, Settings2, UserRoundCheck, Volume2, VolumeX } from 'lucide-react'
+import {
+  BellRing,
+  CheckCircle2,
+  ChevronRight,
+  Settings2,
+  Smartphone,
+  UserRoundCheck,
+  Volume2,
+  VolumeX,
+} from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { DEMO_FAMILY_CODE } from '@/features/auth/lib/demoAccounts'
+import { DEMO_FAMILY_CODE, hasAssignedWorker } from '@/features/auth/lib/demoAccounts'
+import { watchGuardianDeviceCount } from '@/shared/api/push'
 import { FamilyCodeCard } from '@/features/care/components/CareWidgets'
 import { PushPermission } from '@/features/care/components/PushPermission'
 import { CHANNEL_LABEL, READY_CHANNELS } from '@/features/care/hooks/useCareWatcher'
@@ -22,10 +33,16 @@ export function AlertsPage() {
   const guardianName = profile.guardianName.trim()
   // 시연용 가족이 아니면, 처음 들어 있던 예시 보호자를 '예시'라고 알려 줍니다.
   const sampleGuardian = care.familyCode !== DEMO_FAMILY_CODE && guardianName === DEFAULT_PROFILE.guardianName
+  // 보호자가 링크로 연결해 알림을 켰는지 어르신도 알 수 있게 합니다.
+  const [guardianDevices, setGuardianDevices] = useState<number | null>(null)
+  useEffect(() => {
+    if (!care.familyCode) return
+    return watchGuardianDeviceCount(care.familyCode, setGuardianDevices)
+  }, [care.familyCode])
 
   return (
     <div className="animate-fade-up">
-      <PageHeader title="알림" desc="보호자에게 언제, 어떻게 알릴지 정하고 보낸 알림을 확인해요." />
+      <PageHeader title="알림" desc="보호자 연결, 알림 시간, 내 휴대폰 알림을 정하고 보낸 알림을 확인해요." />
 
       <div className="grid gap-5 lg:grid-cols-2">
         <div className="space-y-5">
@@ -55,24 +72,32 @@ export function AlertsPage() {
                 </span>
               </Link>
             )}
+            <GuardianDevices count={guardianDevices} />
             <p className="mt-2 text-sm text-ink-soft">
-              담당 복지사가 정해지면 복지사 화면에서도 함께 지켜봐요.
+              {hasAssignedWorker(care.familyCode)
+                ? '담당 복지사도 복지사 화면에서 함께 지켜봐요.'
+                : '담당 복지사가 정해지면 복지사 화면에서도 함께 지켜봐요.'}
             </p>
             <FamilyCodeCard />
           </InfoCard>
 
-          <InfoCard title="알림 방법" icon={<Settings2 />} subtitle="기상 확인 시간, 휴대폰 알림, 음성 안내">
+          <InfoCard title="보호자에게 알리는 때" icon={<Settings2 />} subtitle="기상 확인 시간">
             <TextField
               label="기상 확인 마감 시간"
               type="time"
               value={care.wakeUpDeadline}
               onChange={(e) => care.setWakeUpDeadline(e.target.value)}
-              hint="이 시간까지 '일어났어요'를 누르지 않으면 알림이 가요."
+              hint="이 시간까지 '일어났어요'를 누르지 않으면 보호자께 알림이 가요."
             />
-            <p className="mt-5 rounded-2xl bg-white/80 p-4 text-base ring-1 ring-brand-100">
-              일이 생기면 연결된 보호자 휴대폰으로 알려 드려요.
+            <p className="mt-4 rounded-2xl bg-white/80 p-4 text-base ring-1 ring-brand-100">
+              긴급 요청, 기상·약 미확인은 연결된 보호자 휴대폰으로 알려 드려요.
             </p>
+          </InfoCard>
+
+          <InfoCard title="내 휴대폰 알림" icon={<Smartphone />} subtitle="약 드실 시간 안내">
+            <p className="mb-3 text-base text-ink-soft">약 드실 시간에 이 휴대폰으로 알려 드려요.</p>
             <PushPermission
+              label="내 휴대폰으로 약 시간 안내 받기"
               role="elder"
               familyCode={care.familyCode}
               onGranted={() => {
@@ -153,5 +178,20 @@ export function AlertsPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+/** 알림을 켠 보호자 휴대폰 수. 못 읽었으면(null) 아무것도 보이지 않습니다. */
+function GuardianDevices({ count }: { count: number | null }) {
+  if (count === null) return null
+  return count > 0 ? (
+    <p className="mt-3 flex items-center gap-2 rounded-2xl bg-emerald-50 p-3 text-base font-bold text-emerald-800 ring-1 ring-emerald-200">
+      <CheckCircle2 className="size-5 shrink-0" aria-hidden />
+      보호자 휴대폰 {count}대에 알림이 켜져 있어요
+    </p>
+  ) : (
+    <p className="mt-3 rounded-2xl bg-amber-50 p-3 text-base font-bold text-amber-900 ring-1 ring-amber-200">
+      아직 알림을 켠 보호자 휴대폰이 없어요. 아래 버튼으로 보호자께 링크를 보내 주세요.
+    </p>
   )
 }

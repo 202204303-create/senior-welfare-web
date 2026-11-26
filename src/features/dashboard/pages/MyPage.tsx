@@ -34,7 +34,12 @@ export function MyPage() {
         <div className="min-w-0 flex-1">
           <p className="text-2xl font-extrabold">{profile.name} 님</p>
           <p className="text-base text-ink-soft">
-            만 {getAge(profile.birthYear)}세 · {provider ? PROVIDER_LABEL[provider] : ''}
+            {[
+              getAge(profile.birthYear) !== null ? `만 ${getAge(profile.birthYear)}세` : '',
+              provider ? PROVIDER_LABEL[provider] : '',
+            ]
+              .filter(Boolean)
+              .join(' · ')}
           </p>
         </div>
       </div>
@@ -61,9 +66,12 @@ export function MyPage() {
               inputMode="numeric"
               min={1920}
               max={new Date().getFullYear()}
-              value={draft.birthYear}
-              onChange={(e) => set('birthYear', Number(e.target.value))}
-              hint={`만 ${getAge(draft.birthYear)}세`}
+              placeholder="예: 1956"
+              value={draft.birthYear || ''}
+              onChange={(e) => set('birthYear', Number(e.target.value) || 0)}
+              hint={
+                getAge(draft.birthYear) !== null ? `만 ${getAge(draft.birthYear)}세` : '네 자리로 넣어 주세요'
+              }
             />
             <TextField
               label="연락처"

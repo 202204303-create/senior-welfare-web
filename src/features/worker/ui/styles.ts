@@ -19,8 +19,9 @@ export const btn =
   'inline-flex items-center justify-between gap-2 rounded border border-slate-300 bg-white px-2.5 py-1.5 text-[13px] text-slate-800 hover:bg-slate-50 disabled:opacity-50'
 export const btnPrimary =
   'inline-flex items-center justify-center gap-2 rounded border border-blue-700 bg-blue-700 px-2.5 py-1.5 text-[13px] font-bold text-white hover:bg-blue-800 disabled:opacity-50'
+/** 키보드 단축키 표시. 휴대폰(키보드 없음)에서는 숨깁니다. */
 export const kbd =
-  'rounded-[3px] border border-slate-400 bg-slate-50 px-1 font-mono text-[11px] text-slate-600'
+  'hidden rounded-[3px] border border-slate-400 bg-slate-50 px-1 font-mono text-[11px] text-slate-600 md:inline'
 export const paneHead =
   'flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2 text-[13px] font-bold'
 export const th =

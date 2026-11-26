@@ -84,8 +84,32 @@ export function LoginPage() {
           ))}
         </ul>
 
+        {!isFirebaseAuth && (
+          <section className="glass mb-5 space-y-3 rounded-3xl p-5" aria-label="처음 오셨나요">
+            <p className="text-center text-lg font-bold">처음 오셨나요?</p>
+            <BigButton
+              size="xl"
+              fullWidth
+              onClick={guest}
+              disabled={pending !== null}
+              loading={pending === 'guest'}
+            >
+              처음 시작하기 (가입 없이)
+            </BigButton>
+            <p className="text-center text-base text-ink-soft">어르신 휴대폰이라면 이 버튼을 눌러 주세요.</p>
+            <Link
+              to="/guardian"
+              className="flex min-h-12 items-center justify-center rounded-2xl text-base font-bold text-violet-700 hover:bg-violet-50"
+            >
+              보호자이신가요? 보호자 화면으로
+            </Link>
+          </section>
+        )}
+
         <form onSubmit={submit} className="glass space-y-4 rounded-3xl p-5">
-          <p className="text-center text-base font-bold text-ink-soft">로그인</p>
+          <p className="text-center text-base font-bold text-ink-soft">
+            {isFirebaseAuth ? '로그인' : '계정이 있으면 로그인'}
+          </p>
           <TextField
             label="아이디"
             value={id}
@@ -102,7 +126,14 @@ export function LoginPage() {
             autoComplete="current-password"
           />
           {error && <StatusNote tone="warn">{error}</StatusNote>}
-          <BigButton type="submit" size="xl" fullWidth icon={<UserRound />} loading={signingIn}>
+          <BigButton
+            type="submit"
+            size={isFirebaseAuth ? 'xl' : 'lg'}
+            variant={isFirebaseAuth ? 'primary' : 'soft'}
+            fullWidth
+            icon={<UserRound />}
+            loading={signingIn}
+          >
             로그인
           </BigButton>
 
@@ -111,53 +142,35 @@ export function LoginPage() {
               관리자가 알려 준 아이디와 비밀번호로 로그인해 주세요.
             </p>
           ) : (
-            <>
-              <fieldset className="rounded-2xl bg-brand-50/80 p-3 ring-1 ring-brand-100">
-                <legend className="px-2 text-sm font-bold text-brand-800">시연용 계정 (눌러서 채우기)</legend>
-                <ul className="space-y-2">
-                  {DEMO_ACCOUNTS.map((a) => (
-                    <li key={a.id}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setId(a.id)
-                          setPassword(a.password)
-                          setError(null)
-                        }}
-                        className="flex min-h-14 w-full flex-col items-start gap-1 rounded-xl bg-white/90 px-4 py-3 text-left ring-1 ring-brand-100 transition active:scale-[0.98]"
-                      >
-                        <span>
-                          <span className="block text-base font-bold">{a.label}</span>
-                          <span className="block text-sm text-ink-soft">{a.desc}</span>
-                        </span>
-                        <span className="font-mono text-sm font-bold text-brand-700">
-                          {a.id} / {a.password}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                <p className="mt-2 px-1 text-xs text-ink-soft">
-                  시연용이라 아이디와 비밀번호가 화면에 보여요. 실제 서비스에서는 바뀝니다.
-                </p>
-              </fieldset>
-
-              <BigButton
-                variant="ghost"
-                fullWidth
-                onClick={guest}
-                disabled={pending !== null}
-                loading={pending === 'guest'}
-              >
-                처음 시작하기 (가입 없이)
-              </BigButton>
-              <Link
-                to="/guardian"
-                className="flex min-h-12 items-center justify-center rounded-2xl text-base font-bold text-violet-700 hover:bg-violet-50"
-              >
-                보호자이신가요? 보호자 화면으로
-              </Link>
-            </>
+            <fieldset className="rounded-2xl bg-brand-50/80 p-3 ring-1 ring-brand-100">
+              <legend className="px-2 text-sm font-bold text-brand-800">시연용 계정 (눌러서 채우기)</legend>
+              <ul className="space-y-2">
+                {DEMO_ACCOUNTS.map((a) => (
+                  <li key={a.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setId(a.id)
+                        setPassword(a.password)
+                        setError(null)
+                      }}
+                      className="flex min-h-14 w-full flex-col items-start gap-1 rounded-xl bg-white/90 px-4 py-3 text-left ring-1 ring-brand-100 transition active:scale-[0.98]"
+                    >
+                      <span>
+                        <span className="block text-base font-bold">{a.label}</span>
+                        <span className="block text-sm text-ink-soft">{a.desc}</span>
+                      </span>
+                      <span className="font-mono text-sm font-bold text-brand-700">
+                        {a.id} / {a.password}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 px-1 text-xs text-ink-soft">
+                시연용이라 아이디와 비밀번호가 화면에 보여요. 실제 서비스에서는 바뀝니다.
+              </p>
+            </fieldset>
           )}
         </form>
 

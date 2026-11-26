@@ -1,5 +1,6 @@
 import { addDoc, collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore'
 import type { ChartAction } from '@/features/worker/lib/chart'
+import { isSampleCode } from '@/features/worker/lib/sampleElders'
 import { ensureSignedIn, getDb } from '@/shared/api/firebase'
 
 type Unsubscribe = () => void
@@ -65,6 +66,7 @@ export function watchNotes(
 }
 
 export async function addNote(code: string, note: { text: string; pinned: boolean; category: NoteCategory }) {
+  if (isSampleCode(code)) throw new Error('예시 어르신은 특이사항이 저장되지 않아요')
   const user = await ensureSignedIn()
   await addDoc(collection(getDb()!, 'families', code, 'notes'), {
     ...note,

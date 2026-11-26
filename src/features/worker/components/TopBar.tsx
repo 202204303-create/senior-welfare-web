@@ -70,8 +70,8 @@ export function TopBar({
           </button>
         ))}
       </div>
-      <div className="ml-auto flex items-center gap-2">
-        <span>
+      <div className="ml-auto flex items-center gap-2 whitespace-nowrap">
+        <span className="whitespace-nowrap">
           처리 {view.done}/{view.managed}
         </span>
         <div
@@ -80,7 +80,7 @@ export function TopBar({
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={pct}
-          className="h-1.5 w-24 overflow-hidden rounded bg-slate-600"
+          className="h-1.5 w-12 overflow-hidden rounded bg-slate-600 sm:w-24"
         >
           <div className="h-full bg-emerald-500" style={{ width: `${pct}%` }} />
         </div>
@@ -88,7 +88,7 @@ export function TopBar({
         <button
           type="button"
           onClick={signOut}
-          className="flex items-center gap-1 rounded px-2 py-0.5 hover:bg-slate-700"
+          className="flex items-center gap-1 rounded px-2 py-0.5 whitespace-nowrap hover:bg-slate-700"
         >
           <LogOut className="size-3.5" aria-hidden /> 로그아웃
         </button>

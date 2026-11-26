@@ -24,7 +24,8 @@ export function useCareReminder() {
     const k = todayKey(now)
     const rec = records[k] ?? { takenMeds: {} }
     const nowMin = now.getHours() * 60 + now.getMinutes()
-    const messages: string[] = []
+    // tag: 서버가 보내는 같은 안내와 같은 꼬리표 → 휴대폰에 두 번 쌓이지 않고 하나로 겹칩니다.
+    const messages: { text: string; tag?: string }[] = []
 
     const deadline = timeToMinutes(wakeUpDeadline)
     if (
@@ -33,7 +34,7 @@ export function useCareReminder() {
       nowMin <= deadline &&
       markReminded(`${k}-wake`)
     ) {
-      messages.push(`좋은 아침이에요. 일어나셨으면 '일어났어요' 버튼을 눌러 주세요.`)
+      messages.push({ text: `좋은 아침이에요. 일어나셨으면 '일어났어요' 버튼을 눌러 주세요.` })
     }
 
     for (const med of medications) {
@@ -44,11 +45,16 @@ export function useCareReminder() {
         nowMin <= t + medGraceMinutes &&
         markReminded(`${k}-med-${med.id}`)
       ) {
-        messages.push(`${med.name} 드실 시간이에요. 드신 뒤 '먹었어요'를 눌러 주세요.`)
+        messages.push({
+          text: `${med.name} 드실 시간이에요. 드신 뒤 '먹었어요'를 눌러 주세요.`,
+          tag: `${k}-remind-${med.id}`,
+        })
       }
     }
 
-    if (messages.length) announce(messages.join(' '))
+    if (!messages.length) return
+    messages.forEach((m) => showSystemNotification('늘봄', m.text, 'warn', m.tag))
+    if (useSettingsStore.getState().voiceGuide) speak(messages.map((m) => m.text).join(' '))
   }, [now, records, medications, wakeUpDeadline, medGraceMinutes, isLoggedIn, markReminded])
 }
 

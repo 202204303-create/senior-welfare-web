@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react'
 import { timeToMinutes, todayKey, useCareStore, type AlertChannel } from '@/features/care/store/useCareStore'
 import { useUserStore } from '@/features/auth/store/useUserStore'
+import { hasAssignedWorker } from '@/features/auth/lib/demoAccounts'
 import { useNow } from '@/shared/hooks/useNow'
 import type { Medication } from '@/features/care/types'
 
@@ -40,23 +41,26 @@ export const CHANNEL_LABEL: Record<AlertChannel, string> = {
  * 실제 카카오톡·SMS 발송은 백엔드에서 처리하며, 프론트엔드에서는 발송 요청 기록을 남깁니다.
  */
 export function useAlertDispatch() {
-  const channels = useCareStore((s) => s.channels)
   const pushAlert = useCareStore((s) => s.pushAlert)
   const profile = useUserStore((s) => s.profile)
 
   const dispatch = useCallback(
     (key: string, reason: string) => {
-      const recipients = [profile.guardianName.trim() || '보호자', '담당 사회복지사']
+      const recipients = [
+        profile.guardianName.trim() || '보호자',
+        ...(hasAssignedWorker(useCareStore.getState().familyCode) ? ['담당 사회복지사'] : []),
+      ]
       // 카카오톡·문자는 아직 실제로 보내지 않으므로, 실제로 쓰는 휴대폰 알림만 기록합니다.
       const sent = pushAlert(key, {
         reason,
-        channels: channels.filter((c) => READY_CHANNELS.includes(c)),
+        // '알림 보낼 방법' 버튼을 없앴으므로, 예전에 꺼 둔 기기도 실제로 쓰는 휴대폰 알림으로 기록합니다.
+        channels: [...READY_CHANNELS],
         recipients,
       })
       if (!sent) return
       // 보호자용 휴대폰 알림은 보호자 화면(/guardian)이 띄웁니다. 어르신 휴대폰에는 띄우지 않습니다.
     },
-    [channels, profile.guardianName, pushAlert],
+    [profile.guardianName, pushAlert],
   )
 
   const sendSOS = useCallback(() => {

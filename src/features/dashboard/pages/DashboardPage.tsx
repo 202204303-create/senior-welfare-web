@@ -7,6 +7,7 @@ import {
   StartGuide,
   WakeUpCard,
 } from '@/features/care/components/CareWidgets'
+import { ElderPushPrompt } from '@/features/care/components/ElderPushPrompt'
 import { FirstSetup } from '@/features/care/components/FirstSetup'
 import { useNow } from '@/shared/hooks/useNow'
 import { InfoCard } from '@/shared/ui'
@@ -30,6 +31,7 @@ export function DashboardPage() {
       </div>
 
       <FirstSetup />
+      <ElderPushPrompt />
 
       {/* 가장 중요한 '일어났어요'가 첫 화면에 바로 보이도록 맨 위에 둡니다. */}
       <WakeUpCard />

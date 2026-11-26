@@ -1,4 +1,4 @@
-import { doc, setDoc } from 'firebase/firestore'
+import { collection, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore'
 import { getMessaging, getToken, isSupported } from 'firebase/messaging'
 import { ensureSignedIn, getDb, getFirebaseApp } from '@/shared/api/firebase'
 
@@ -111,4 +111,28 @@ export function requestCheckinPush(code: string, dateKey: string, kind: 'wake' |
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ code, dateKey, kind, medId }),
   }).catch(() => {})
+}
+
+/**
+ * 이 가족에 '알림을 켠 보호자 휴대폰'이 몇 대인지 실시간으로 셉니다. (어르신 알림 화면 표시용)
+ * 읽기에 실패하면 null 을 넘겨 화면에서 숨깁니다.
+ */
+export function watchGuardianDeviceCount(code: string, onData: (count: number | null) => void) {
+  let off: (() => void) | null = null
+  let cancelled = false
+  ensureSignedIn()
+    .then(() => {
+      const db = getDb()
+      if (cancelled || !db) return onData(null)
+      off = onSnapshot(
+        query(collection(db, 'families', code, 'pushTokens'), where('role', '==', 'guardian')),
+        (snap) => onData(snap.size),
+        () => onData(null),
+      )
+    })
+    .catch(() => onData(null))
+  return () => {
+    cancelled = true
+    off?.()
+  }
 }

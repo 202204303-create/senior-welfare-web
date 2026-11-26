@@ -2,14 +2,19 @@ import { useEffect, useState } from 'react'
 import { isFirebaseAuth } from '@/features/auth/lib/authMode'
 import { DEMO_FAMILY_CODE, WORKER_FAMILY_CODES } from '@/features/auth/lib/demoAccounts'
 import { watchAssignments, type Assignment } from '@/features/worker/api/assignments'
+import { SAMPLE_ASSIGNMENTS } from '@/features/worker/lib/sampleElders'
 
-const DEMO_ASSIGNMENTS: Assignment[] = WORKER_FAMILY_CODES.map((code) => ({
-  code,
-  displayName: code === DEMO_FAMILY_CODE ? '김영수' : code,
-  dong: '',
-  tags: [],
-  pinnedToday: false,
-}))
+// 시연 계정 모드: 시연 어르신(김영수) + 예시 어르신 7명 (큐·등급 정렬을 보여 주기 위해)
+const DEMO_ASSIGNMENTS: Assignment[] = [
+  ...WORKER_FAMILY_CODES.map((code) => ({
+    code,
+    displayName: code === DEMO_FAMILY_CODE ? '김영수' : code,
+    dong: '신당동',
+    tags: ['시연'],
+    pinnedToday: false,
+  })),
+  ...SAMPLE_ASSIGNMENTS,
+]
 
 export interface AssignmentsState {
   assignments: Assignment[]

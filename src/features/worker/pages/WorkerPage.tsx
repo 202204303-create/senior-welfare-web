@@ -10,6 +10,7 @@ import { useAssignments } from '@/features/worker/hooks/useAssignments'
 import { useElderChart } from '@/features/worker/hooks/useElderChart'
 import { useWorkerQueue } from '@/features/worker/hooks/useWorkerQueue'
 import { buildQueue, filterByGrade } from '@/features/worker/lib/queue'
+import { isSampleCode } from '@/features/worker/lib/sampleElders'
 import type { Grade, Overlay } from '@/features/worker/types'
 import { kbd } from '@/features/worker/ui/styles'
 import { isFirebaseEnabled } from '@/shared/api/firebase'
@@ -141,7 +142,7 @@ export function WorkerPage() {
         search={search}
         onSearch={setSearch}
         searchRef={searchRef}
-        codes={assignments.map((a) => a.code)}
+        codes={assignments.map((a) => a.code).filter((c) => !isSampleCode(c))}
       />
 
       {blocking ? (

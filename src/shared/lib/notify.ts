@@ -8,14 +8,20 @@
 export type NotifyLevel = 'urgent' | 'warn'
 const VIBRATE: Record<NotifyLevel, number[]> = { urgent: [500, 150, 500, 150, 900], warn: [250, 120, 250] }
 
-export function showSystemNotification(title: string, body: string, level: NotifyLevel = 'warn') {
+export function showSystemNotification(
+  title: string,
+  body: string,
+  level: NotifyLevel = 'warn',
+  /** 같은 꼬리표의 알림은 하나로 겹칩니다. (없으면 본문을 꼬리표로 씀) */
+  tag: string = body,
+) {
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
   // requireInteraction: 사용자가 직접 닫을 때까지 알림이 화면에 남습니다. (지원하는 기기에서)
   const options: NotificationOptions = {
     body,
     icon: '/pwa-192x192.png',
     badge: '/pwa-192x192.png',
-    tag: body,
+    tag,
     requireInteraction: true,
     // 진동은 안드로이드에서 동작합니다. (TS 기본 타입에 없어 확장)
     ...({ vibrate: VIBRATE[level] } as object),

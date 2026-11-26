@@ -44,23 +44,38 @@ export function Logo({ compact = false }: { compact?: boolean } = {}) {
   )
 }
 
+/**
+ * 글자 크기 버튼 (보통 → 크게 → 아주 크게). 화면 전체 글자 크기도 여기서 적용합니다.
+ * 어르신 화면과 보호자 화면이 함께 씁니다.
+ */
+export function FontScaleButton() {
+  const { fontScale, setFontScale } = useSettingsStore()
+  useEffect(() => {
+    document.documentElement.style.fontSize = `${FONT_SCALE_PX[fontScale]}px`
+  }, [fontScale])
+  const cycleFont = () => setFontScale(SCALE_ORDER[(SCALE_ORDER.indexOf(fontScale) + 1) % SCALE_ORDER.length])
+  return (
+    <button
+      onClick={cycleFont}
+      className="flex min-h-12 shrink-0 items-center gap-1 rounded-2xl bg-white/80 px-2.5 text-base font-bold whitespace-nowrap text-brand-700 ring-1 ring-brand-100 hover:bg-brand-50"
+      aria-label={`글자 크기 변경, 현재 ${SCALE_LABEL[fontScale]}`}
+    >
+      <Type className="size-5 shrink-0" aria-hidden />
+      <span className="hidden sm:inline">글자</span> {SCALE_LABEL[fontScale]}
+    </button>
+  )
+}
+
 export function AppLayout() {
   useCareWatcher()
   useCareSync()
   useCareReminder()
-  const { fontScale, setFontScale } = useSettingsStore()
   const profile = useUserStore((s) => s.profile)
   const { pathname } = useLocation()
 
   useEffect(() => {
-    document.documentElement.style.fontSize = `${FONT_SCALE_PX[fontScale]}px`
-  }, [fontScale])
-
-  useEffect(() => {
     window.scrollTo({ top: 0 })
   }, [pathname])
-
-  const cycleFont = () => setFontScale(SCALE_ORDER[(SCALE_ORDER.indexOf(fontScale) + 1) % SCALE_ORDER.length])
 
   return (
     <div className="min-h-dvh">
@@ -95,14 +110,7 @@ export function AppLayout() {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-2">
-            <button
-              onClick={cycleFont}
-              className="flex min-h-12 shrink-0 items-center gap-1 rounded-2xl bg-white/80 px-2.5 text-base font-bold whitespace-nowrap text-brand-700 ring-1 ring-brand-100 hover:bg-brand-50"
-              aria-label={`글자 크기 변경, 현재 ${SCALE_LABEL[fontScale]}`}
-            >
-              <Type className="size-5 shrink-0" aria-hidden />
-              <span className="hidden sm:inline">글자</span> {SCALE_LABEL[fontScale]}
-            </button>
+            <FontScaleButton />
             <NavLink
               to="/my"
               className={({ isActive }) =>
