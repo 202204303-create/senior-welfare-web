@@ -1,26 +1,14 @@
-import {
-  AlarmClock,
-  BellRing,
-  Check,
-  CheckCheck,
-  Clock,
-  Cloud,
-  CloudOff,
-  Hourglass,
-  Pill,
-  Share2,
-  Siren,
-  Sun,
-} from 'lucide-react'
+import { AlarmClock, BellRing, Check, Clock, Cloud, CloudOff, Pill, Share2, Siren, Sun } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getMedStatus, useAlertDispatch } from '@/features/care/hooks/useCareWatcher'
+import { getMedStatus, useAlertDispatch, type MedStatus } from '@/features/care/hooks/useCareWatcher'
+import type { Medication } from '@/features/care/types'
 import { useSyncStatus, type SyncStatus } from '@/features/care/hooks/useCareSync'
 import { WAKE_REMIND_BEFORE_MIN } from '@/features/care/hooks/useCareReminder'
 import { useShareGuardianLink } from '@/features/care/hooks/useShareGuardianLink'
 import { STATUS_STYLE } from '@/features/care/lib/status'
 import { useNow } from '@/shared/hooks/useNow'
-import { timeToMinutes, todayKey, useCareStore, type AlertLog } from '@/features/care/store/useCareStore'
+import { timeToMinutes, todayKey, useCareStore } from '@/features/care/store/useCareStore'
 import { BigButton, Modal, StatusNote } from '@/shared/ui'
 
 const fmtTime = (iso: string) =>
@@ -87,6 +75,22 @@ export function WakeUpCard() {
   )
 }
 
+const MED_ORDER: Record<MedStatus, number> = { due: 0, upcoming: 1, missed: 2, later: 3, taken: 4 }
+
+/** 현재 시각 기준 약 순서: 지금 드실 약 → 다가오는 약 → 놓친 약 → (내일부터) → 드신 약, 같은 묶음은 시간순 */
+export function sortMedsForNow(
+  meds: Medication[],
+  taken: Record<string, string>,
+  now: Date,
+  graceMin: number,
+): Medication[] {
+  return [...meds].sort((a, b) => {
+    const sa = MED_ORDER[getMedStatus(a, taken[a.id], now, graceMin)]
+    const sb = MED_ORDER[getMedStatus(b, taken[b.id], now, graceMin)]
+    return sa - sb || a.time.localeCompare(b.time)
+  })
+}
+
 export function MedChecklist({ compact = false }: { compact?: boolean }) {
   const now = useNow(30_000)
   const { medications, records, toggleMed, medGraceMinutes } = useCareStore()
@@ -95,7 +99,9 @@ export function MedChecklist({ compact = false }: { compact?: boolean }) {
   const [undoId, setUndoId] = useState<string | null>(null)
   const undoMed = medications.find((m) => m.id === undoId)
 
-  const list = compact ? medications.filter((m) => !taken[m.id]).slice(0, 2) : medications
+  // 지금 드실 약·다가오는 약을 위에, 시간이 지난 약(놓친 약 → 드신 약)은 아래로 내립니다. (교수님 피드백)
+  const ordered = sortMedsForNow(medications, taken, now, medGraceMinutes)
+  const list = compact ? ordered.filter((m) => !taken[m.id]).slice(0, 2) : ordered
 
   if (medications.length === 0) {
     return (
@@ -285,9 +291,7 @@ export function SOSButton({ className = '' }: { className?: string }) {
                 <Check className="size-9" strokeWidth={3} aria-hidden />
               </span>
               <p className="text-xl font-extrabold text-emerald-800">보호자와 복지사에게 알렸어요</p>
-              <p className="text-base text-ink-soft">
-                보호자가 확인하면 홈 화면의 긴급 버튼 아래에 표시돼요.
-              </p>
+              <p className="text-base text-ink-soft">보호자와 복지사가 곧 연락드릴 거예요.</p>
             </div>
             <div className="space-y-3">
               <a
@@ -383,37 +387,18 @@ export function FamilyCodeCard() {
 }
 
 /** 보호자가 알림을 확인했는지 보여 주는 한 줄 */
-export function AlertAckLine({ alert }: { alert: AlertLog }) {
-  if (alert.ackAt)
-    return (
-      <p className="mt-1.5 flex items-center gap-1.5 text-sm font-bold text-emerald-700">
-        <CheckCheck className="size-4" aria-hidden />
-        {alert.ackBy ?? '보호자'}님이 확인했어요 · {fmtTime(alert.ackAt)}
-      </p>
-    )
-  return (
-    <p className="mt-1.5 flex items-center gap-1.5 text-sm font-bold text-amber-700">
-      <Hourglass className="size-4" aria-hidden />
-      보호자 확인을 기다리는 중
-    </p>
-  )
-}
-
 const SOS_SHOW_MS = 3 * 60 * 60 * 1000 // 최근 3시간 안의 긴급 요청만 표시
 
-/** 긴급 요청을 보낸 뒤 보호자가 확인했는지 바로 보여 줍니다. */
+/** 긴급 요청을 보냈다는 것을 버튼 아래에 남겨 둡니다. (보호자 확인 여부는 어르신께 알리지 않음) */
 function SosStatus() {
   const now = useNow(30_000)
   const alerts = useCareStore((s) => s.alerts)
   const last = alerts.find((a) => a.kind === 'sos')
   if (!last || now.getTime() - new Date(last.at).getTime() > SOS_SHOW_MS) return null
   return (
-    <div
-      role="status"
-      className={`mt-3 rounded-2xl p-4 ring-2 ${last.ackAt ? 'bg-emerald-50 ring-emerald-200' : 'bg-amber-50 ring-amber-200'}`}
-    >
+    <div role="status" className="mt-3 rounded-2xl bg-amber-50 p-4 ring-2 ring-amber-200">
       <p className="text-base font-bold">{fmtTime(last.at)}에 긴급 도움을 요청했어요.</p>
-      <AlertAckLine alert={last} />
+      <p className="mt-1 text-sm text-ink-soft">보호자와 담당 복지사에게 알렸어요.</p>
     </div>
   )
 }
