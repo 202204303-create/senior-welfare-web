@@ -1,4 +1,4 @@
-import { ChevronDown, Home, PhoneMissed, PhoneOutgoing, Send } from 'lucide-react'
+import { CheckCheck, ChevronDown, Home, PhoneMissed, PhoneOutgoing, Send } from 'lucide-react'
 import { useState } from 'react'
 import { saveActions, type SavedAction } from '@/features/worker/api/actions'
 import { NEXT_ACTION_LABEL, type NextAction } from '@/features/worker/lib/chart'
@@ -13,6 +13,13 @@ const MAIN: { r: ActionResult; label: string; sub: string; Icon: typeof Home; cl
     sub: '확인할 일이 모두 끝나요',
     Icon: PhoneOutgoing,
     cls: 'bg-emerald-600 text-white hover:bg-emerald-700',
+  },
+  {
+    r: 'checked',
+    label: '확인했어요',
+    sub: '전화 없이 확인만 (보호자가 이미 연락했을 때 등)',
+    Icon: CheckCheck,
+    cls: 'bg-blue-700 text-white hover:bg-blue-800',
   },
   {
     r: 'call_no_answer',
@@ -94,7 +101,7 @@ export function QuickActions({
 
   return (
     <div className="space-y-2">
-      {MAIN.map(({ r, label, sub, Icon, cls }) => (
+      {MAIN.filter((m) => m.r !== 'checked' || issues.length > 0).map(({ r, label, sub, Icon, cls }) => (
         <button
           key={r}
           type="button"
