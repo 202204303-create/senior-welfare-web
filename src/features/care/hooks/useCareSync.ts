@@ -8,8 +8,6 @@ import {
   saveHeartbeat,
   watchAlerts,
 } from '@/features/care/api/family'
-import { announce } from '@/features/care/hooks/useCareReminder'
-import { addNotice } from '@/shared/store/useNoticeStore'
 import { newCheckins } from '@/features/care/lib/checkins'
 import { requestCheckinPush, requestGuardianPush } from '@/shared/api/push'
 import { todayKey, useCareStore, type DayRecord } from '@/features/care/store/useCareStore'
@@ -78,9 +76,11 @@ export function useCareSync() {
         Promise.all(
           changed.map(async ([k, rec]) => {
             await saveDayRecord(familyCode, k, rec)
-            // 방금 '일어났어요'·'먹었어요'를 누른 것은 보호자 휴대폰으로 알립니다. (처음 불러올 때와 지난 날짜는 제외)
+            // '먹었어요'는 보호자에게 알리지 않습니다. (교수님 피드백: 좋은 소식까지 울리면 소음)
+            // '일어났어요'는 서버에 알려 두면, '아침 안부 알림 받기'를 켠 보호자 기기에만 조용히 갑니다. (기본은 꺼짐)
             if (!prev || k !== todayKey()) return
-            for (const c of newCheckins(prev[k], rec)) requestCheckinPush(familyCode, k, c.kind, c.medId)
+            for (const c of newCheckins(prev[k], rec))
+              if (c.kind === 'wake') requestCheckinPush(familyCode, k, 'wake')
           }),
         ),
       )
@@ -126,22 +126,12 @@ export function useCareSync() {
     return watchAlerts(
       familyCode,
       (list) => {
-        const local = new Map(useCareStore.getState().alerts.map((a) => [a.id, a]))
-        const newlyAcked = list.filter((a) => a.ackAt && local.has(a.id) && !local.get(a.id)!.ackAt)
         useCareStore.getState().applyAcks(list)
         // 앱이 닫혀 있는 동안 서버가 만든 알림(srv-…)을 내 기록에 합치고, 같은 알림을 다시 보내지 않게 합니다.
         const serverAlerts = list.filter((a) => a.id.startsWith('srv-'))
         serverAlerts.forEach((a) => sentIds.current.add(a.id)) // 서버에 이미 있으므로 다시 올리지 않음
         useCareStore.getState().mergeServerAlerts(serverAlerts)
-        if (newlyAcked.length) {
-          const who = newlyAcked[0].ackBy ?? '보호자'
-          const sos = newlyAcked.some((a) => a.kind === 'sos')
-          const text = sos
-            ? `${who}님이 긴급 요청을 확인했어요. 곧 연락드릴 거예요.`
-            : `${who}님이 알림을 확인했어요.`
-          addNotice({ message: text, tone: 'success', key: `ack-${newlyAcked[0].id}` })
-          announce(text)
-        }
+        // 보호자·복지사가 확인한 것은 기록만 합니다. 어르신께 다시 알리지 않습니다. (교수님 피드백)
       },
       (e) => console.warn('[늘봄] 확인 응답 받기 실패', e),
     )

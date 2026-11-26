@@ -23,4 +23,8 @@ jobs:
             echo "CRON_SECRET 비밀값이 없어 건너뜁니다."
             exit 0
           fi
-          curl -fsS --max-time 60 -H "Authorization: Bearer $CRON_SECRET" "$SITE/api/check"
+          # 실패해도 서버가 돌려준 오류 내용을 기록에 남기도록 -f 대신 상태 코드를 따로 확인합니다.
+          code=$(curl -sS --max-time 60 -o body.json -w '%{http_code}' -H "Authorization: Bearer $CRON_SECRET" "$SITE/api/check")
+          cat body.json; echo
+          echo "HTTP $code"
+          [ "$code" = "200" ]

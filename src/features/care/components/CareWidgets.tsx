@@ -1,26 +1,14 @@
-import {
-  AlarmClock,
-  BellRing,
-  Check,
-  CheckCheck,
-  Clock,
-  Cloud,
-  CloudOff,
-  Hourglass,
-  Pill,
-  Share2,
-  Siren,
-  Sun,
-} from 'lucide-react'
-import { useState } from 'react'
+import { AlarmClock, BellRing, Check, Clock, Cloud, CloudOff, Pill, Share2, Siren, Sun } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getMedStatus, useAlertDispatch } from '@/features/care/hooks/useCareWatcher'
+import { getMedStatus, useAlertDispatch, type MedStatus } from '@/features/care/hooks/useCareWatcher'
+import type { Medication } from '@/features/care/types'
 import { useSyncStatus, type SyncStatus } from '@/features/care/hooks/useCareSync'
 import { WAKE_REMIND_BEFORE_MIN } from '@/features/care/hooks/useCareReminder'
 import { useShareGuardianLink } from '@/features/care/hooks/useShareGuardianLink'
 import { STATUS_STYLE } from '@/features/care/lib/status'
 import { useNow } from '@/shared/hooks/useNow'
-import { timeToMinutes, todayKey, useCareStore, type AlertLog } from '@/features/care/store/useCareStore'
+import { timeToMinutes, todayKey, useCareStore } from '@/features/care/store/useCareStore'
 import { BigButton, Modal, StatusNote } from '@/shared/ui'
 
 const fmtTime = (iso: string) =>
@@ -87,6 +75,25 @@ export function WakeUpCard() {
   )
 }
 
+/** 방금 드신 약을 제자리에 두는 시간 */
+const JUST_TAKEN_MS = 4000
+
+const MED_ORDER: Record<MedStatus, number> = { due: 0, upcoming: 1, missed: 2, later: 3, taken: 4 }
+
+/** 현재 시각 기준 약 순서: 지금 드실 약 → 다가오는 약 → 놓친 약 → (내일부터) → 드신 약, 같은 묶음은 시간순 */
+export function sortMedsForNow(
+  meds: Medication[],
+  taken: Record<string, string>,
+  now: Date,
+  graceMin: number,
+): Medication[] {
+  return [...meds].sort((a, b) => {
+    const sa = MED_ORDER[getMedStatus(a, taken[a.id], now, graceMin)]
+    const sb = MED_ORDER[getMedStatus(b, taken[b.id], now, graceMin)]
+    return sa - sb || a.time.localeCompare(b.time)
+  })
+}
+
 export function MedChecklist({ compact = false }: { compact?: boolean }) {
   const now = useNow(30_000)
   const { medications, records, toggleMed, medGraceMinutes } = useCareStore()
@@ -95,7 +102,21 @@ export function MedChecklist({ compact = false }: { compact?: boolean }) {
   const [undoId, setUndoId] = useState<string | null>(null)
   const undoMed = medications.find((m) => m.id === undoId)
 
-  const list = compact ? medications.filter((m) => !taken[m.id]).slice(0, 2) : medications
+  // 지금 드실 약·다가오는 약을 위에, 시간이 지난 약(놓친 약 → 드신 약)은 아래로 내립니다. (교수님 피드백)
+  // 방금 '먹었어요'를 누른 약은 몇 초 동안 제자리에 두고 '잘 드셨어요'를 보여 준 뒤 아래로 옮깁니다.
+  // (누르자마자 카드가 사라지면 어르신이 눌렸는지 헷갈리기 때문)
+  const [justTaken, setJustTaken] = useState<string[]>([])
+  const timers = useRef<number[]>([])
+  useEffect(() => () => timers.current.forEach((t) => clearTimeout(t)), [])
+  const markJustTaken = (id: string) => {
+    setJustTaken((ids) => [...ids, id])
+    timers.current.push(
+      window.setTimeout(() => setJustTaken((ids) => ids.filter((x) => x !== id)), JUST_TAKEN_MS),
+    )
+  }
+  const takenForOrder = Object.fromEntries(Object.entries(taken).filter(([id]) => !justTaken.includes(id)))
+  const ordered = sortMedsForNow(medications, takenForOrder, now, medGraceMinutes)
+  const list = compact ? ordered.filter((m) => !taken[m.id]).slice(0, 2) : ordered
 
   if (medications.length === 0) {
     return (
@@ -133,6 +154,7 @@ export function MedChecklist({ compact = false }: { compact?: boolean }) {
                 onClick={() => {
                   if (isTaken) return setUndoId(med.id)
                   toggleMed(med.id)
+                  markJustTaken(med.id)
                 }}
                 aria-pressed={isTaken}
                 className={`block w-full rounded-2xl p-4 text-left ring-2 transition active:scale-[0.99] ${
@@ -181,6 +203,14 @@ export function MedChecklist({ compact = false }: { compact?: boolean }) {
                 >
                   {med.name}
                 </span>
+                {isTaken && justTaken.includes(med.id) && (
+                  <span
+                    role="status"
+                    className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 text-lg font-bold text-white"
+                  >
+                    <Check className="size-5" strokeWidth={3} aria-hidden />잘 드셨어요
+                  </span>
+                )}
                 {/* 누를 수 있다는 것을 알 수 있도록 안 먹은 약에는 큰 '먹었어요' 표시 */}
                 {!isTaken && (
                   <span
@@ -286,7 +316,7 @@ export function SOSButton({ className = '' }: { className?: string }) {
               </span>
               <p className="text-xl font-extrabold text-emerald-800">보호자와 복지사에게 알렸어요</p>
               <p className="text-base text-ink-soft">
-                보호자가 확인하면 홈 화면의 긴급 버튼 아래에 표시돼요.
+                보호자가 확인하면 긴급 버튼 아래에 표시돼요. (소리 없이)
               </p>
             </div>
             <div className="space-y-3">
@@ -354,7 +384,7 @@ export function FamilyCodeCard() {
     <div className="mt-3 rounded-2xl bg-brand-50/90 p-4 ring-1 ring-brand-100">
       <p className="text-base font-bold">보호자 연결</p>
       <p className="mb-3 text-sm text-ink-soft">링크를 보내 드리면 보호자는 누르기만 해도 바로 연결돼요.</p>
-      <BigButton fullWidth size="lg" icon={<Share2 />} onClick={share} className="px-3 whitespace-nowrap">
+      <BigButton fullWidth size="lg" icon={<Share2 />} onClick={share} className="px-3 text-balance">
         보호자에게 링크 보내기
       </BigButton>
       {shareNote && (
@@ -383,25 +413,13 @@ export function FamilyCodeCard() {
 }
 
 /** 보호자가 알림을 확인했는지 보여 주는 한 줄 */
-export function AlertAckLine({ alert }: { alert: AlertLog }) {
-  if (alert.ackAt)
-    return (
-      <p className="mt-1.5 flex items-center gap-1.5 text-sm font-bold text-emerald-700">
-        <CheckCheck className="size-4" aria-hidden />
-        {alert.ackBy ?? '보호자'}님이 확인했어요 · {fmtTime(alert.ackAt)}
-      </p>
-    )
-  return (
-    <p className="mt-1.5 flex items-center gap-1.5 text-sm font-bold text-amber-700">
-      <Hourglass className="size-4" aria-hidden />
-      보호자 확인을 기다리는 중
-    </p>
-  )
-}
-
 const SOS_SHOW_MS = 3 * 60 * 60 * 1000 // 최근 3시간 안의 긴급 요청만 표시
 
-/** 긴급 요청을 보낸 뒤 보호자가 확인했는지 바로 보여 줍니다. */
+/**
+ * 긴급 요청을 보냈다는 것을 버튼 아래에 남겨 둡니다.
+ * 일상 알림(기상·복약)의 확인은 어르신께 알리지 않지만, 긴급 요청만은 '전달됐다'는 것이 가장 중요하므로
+ * 보호자가 확인하면 이 자리에 조용히(소리·알림 없이) 표시합니다.
+ */
 function SosStatus() {
   const now = useNow(30_000)
   const alerts = useCareStore((s) => s.alerts)
@@ -413,7 +431,14 @@ function SosStatus() {
       className={`mt-3 rounded-2xl p-4 ring-2 ${last.ackAt ? 'bg-emerald-50 ring-emerald-200' : 'bg-amber-50 ring-amber-200'}`}
     >
       <p className="text-base font-bold">{fmtTime(last.at)}에 긴급 도움을 요청했어요.</p>
-      <AlertAckLine alert={last} />
+      {last.ackAt ? (
+        <p className="mt-1 flex items-center gap-1.5 text-base font-bold text-emerald-700">
+          <Check className="size-5" strokeWidth={3} aria-hidden />
+          {last.ackBy ?? '보호자'}님이 확인했어요 · {fmtTime(last.ackAt)}
+        </p>
+      ) : (
+        <p className="mt-1 text-sm text-ink-soft">보호자와 담당 복지사에게 알렸어요.</p>
+      )}
     </div>
   )
 }
@@ -429,7 +454,13 @@ interface DoneItem {
  * - 약 드실 시각이 지났는데 체크하지 않은 약: '먹었어요' 버튼, 놓친 약은 보호자께 알렸다는 안내
  * - 배너에서 방금 기록한 일: 초록색 완료 줄 (닫기 전까지 남음)
  */
-export function CareReminderBanner({ showWake = true }: { showWake?: boolean }) {
+export function CareReminderBanner({
+  showWake = true,
+  compact = false,
+}: {
+  showWake?: boolean
+  compact?: boolean
+}) {
   const now = useNow(30_000)
   const { medications, records, toggleMed, checkWakeUp, wakeUpDeadline, medGraceMinutes, alerts } =
     useCareStore()
@@ -449,6 +480,22 @@ export function CareReminderBanner({ showWake = true }: { showWake?: boolean }) 
       !later.includes(m.id) &&
       getMedStatus(m, undefined, now, medGraceMinutes) !== 'later',
   )
+  // 홈이 아닌 화면(약·알림·내 정보)에서는 큰 상자 대신 한 줄 띠만 보여 줍니다.
+  // (큰 글씨에서 상자가 화면을 다 덮어 그 화면의 내용이 안 보이던 문제)
+  if (compact) {
+    const count = (wakeDue ? 1 : 0) + pending.length
+    if (!count) return null
+    return (
+      <Link
+        to="/"
+        className="mb-4 flex min-h-12 items-center gap-2 rounded-2xl bg-amber-50 px-4 py-2 text-base font-bold text-amber-900 ring-2 ring-amber-200"
+      >
+        <BellRing className="size-5 shrink-0" aria-hidden />
+        <span className="min-w-0 flex-1">오늘 확인할 일 {count}개</span>
+        <span className="shrink-0 whitespace-nowrap text-brand-700">홈에서 하기 →</span>
+      </Link>
+    )
+  }
   if (!wakeDue && pending.length === 0 && done.length === 0) return null
 
   const addDone = (key: string, text: string) =>

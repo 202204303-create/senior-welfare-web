@@ -1,6 +1,15 @@
 /* 시험 전용: firebase-admin Firestore·Messaging 중 서버 코드가 쓰는 부분만 흉내 낸 메모리 저장소 */
 type Data = Record<string, unknown>
 
+/** 실제 Firestore 처럼 값 어디에든 undefined 가 있으면 저장을 거절합니다. (시험에서 미리 잡기 위해) */
+function rejectUndefined(v: unknown, path = ''): void {
+  if (v === undefined)
+    throw new Error(`Cannot use "undefined" as a Firestore value (found in field "${path}")`)
+  if (Array.isArray(v)) v.forEach((x, i) => rejectUndefined(x, `${path}.${i}`))
+  else if (v && typeof v === 'object')
+    for (const [k, x] of Object.entries(v)) rejectUndefined(x, path ? `${path}.${k}` : k)
+}
+
 class DocSnap {
   constructor(
     public ref: DocRef,
@@ -55,7 +64,9 @@ export class FakeDb {
     }
     return doc
   }
-  async runTransaction<T>(fn: (tx: { get: (r: DocRef) => Promise<DocSnap>; update: (r: DocRef, d: Data) => void }) => Promise<T>) {
+  async runTransaction<T>(
+    fn: (tx: { get: (r: DocRef) => Promise<DocSnap>; update: (r: DocRef, d: Data) => void }) => Promise<T>,
+  ) {
     const writes: [DocRef, Data][] = []
     const result = await fn({ get: (r) => r.get(), update: (r, d) => void writes.push([r, d]) })
     for (const [r, d] of writes) await r.update(d)
@@ -121,15 +132,18 @@ class DocRef {
     return new DocSnap(this, this.db.store.get(this.path))
   }
   async set(d: Data) {
+    rejectUndefined(d)
     this.db.store.set(this.path, { ...d })
   }
   async create(d: Data) {
+    rejectUndefined(d)
     if (this.db.store.has(this.path)) throw new Error('ALREADY_EXISTS')
     this.db.store.set(this.path, { ...d })
   }
   async update(d: Data) {
     const cur = this.db.store.get(this.path)
     if (!cur) throw new Error('NOT_FOUND')
+    rejectUndefined(d)
     this.db.store.set(this.path, { ...cur, ...d })
   }
   async delete() {
@@ -147,7 +161,8 @@ export class FakeMessaging {
   dead = new Set<string>()
   async sendEachForMulticast(msg: { tokens: string[]; data: Record<string, string> }) {
     const responses = msg.tokens.map((token) => {
-      if (this.dead.has(token)) return { success: false, error: { code: 'messaging/registration-token-not-registered' } }
+      if (this.dead.has(token))
+        return { success: false, error: { code: 'messaging/registration-token-not-registered' } }
       this.sent.push({ token, data: msg.data })
       return { success: true }
     })

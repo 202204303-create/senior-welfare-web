@@ -43,7 +43,8 @@ export function findCareIssues(
   if (!today.wakeUpAt && nowMin > timeToMinutes(family.wakeUpDeadline)) {
     issues.push({
       key: `${dateKey}-wake`,
-      level: 'danger',
+      // 긴급(빨강)은 SOS 만. 기상 미확인은 '확인 필요' 단계 (알림 정책과 같게)
+      level: 'warn',
       text: `${family.wakeUpDeadline}까지 기상 확인이 없어요.`,
     })
   }

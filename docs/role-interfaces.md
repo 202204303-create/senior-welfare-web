@@ -342,7 +342,7 @@ families/{code}                 ← 6자리 가족 코드 (어르신 한 명당 
 해결: **요약 문서**를 서버가 미리 만들어 둡니다.
 
 ```
-families/{code}/summary        ← 서버 함수가 기록이 생길 때마다 갱신
+families/{code}/summary/current ← 서버 함수가 기록이 생길 때마다 갱신 (문서 경로는 summary/current)
   ├─ todayWake: 시각 | null
   ├─ todayMedDone: 2, todayMedTotal: 4
   ├─ openIssues: [{type, grade, since}]   ← 열린 이슈 목록
@@ -471,7 +471,7 @@ families/{code}/actions/{actionId}       ← 처리·상담 기록 (추가만 �
   ├─ nextAction: "none" | "recall" | "visit" | "guardian"
   └─ followUpAt (선택)
 
-families/{code}/summary                  ← 서버가 갱신 (3.3 참고)
+families/{code}/summary/current          ← 서버가 갱신 (3.3 참고)
 families/{code}/notes/{noteId}           ← 특이사항 (고정 메모)
 ```
 

@@ -1,5 +1,13 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app'
-import { connectAuthEmulator, getAuth, onAuthStateChanged, signInAnonymously, type User } from 'firebase/auth'
+import {
+  connectAuthEmulator,
+  getAuth,
+  onAuthStateChanged,
+  signInAnonymously,
+  signInWithEmailAndPassword,
+  signOut,
+  type User,
+} from 'firebase/auth'
 import { connectFirestoreEmulator, initializeFirestore, type Firestore } from 'firebase/firestore'
 
 /**
@@ -57,13 +65,28 @@ export function getDb(): Firestore | null {
   return db
 }
 
+/**
+ * 계정 로그인 모드(VITE_AUTH_MODE=firebase)에서는 익명 로그인을 하지 않습니다.
+ * 역할별 규칙(firestore.roles.rules)은 계정 정보(users)가 있는 로그인만 허용하기 때문입니다.
+ */
+export const REQUIRE_ACCOUNT = import.meta.env.VITE_AUTH_MODE === 'firebase'
+
 let signingIn: Promise<User> | null = null
 
-/** 익명 로그인. Firestore 보안 규칙이 로그인한 사용자만 읽고 쓰게 하므로 먼저 호출합니다. */
+/**
+ * 서버(Firestore) 접속에 쓸 로그인 사용자를 돌려줍니다.
+ * - 기본(시연용 계정 모드): 익명 로그인
+ * - 계정 로그인 모드: 저장된 로그인을 복원해 쓰고, 로그인이 없으면 오류
+ */
 export function ensureSignedIn(): Promise<User> {
   if (!getDb() || !app) return Promise.reject(new Error('Firebase 설정이 없습니다.'))
   const auth = getAuth(app)
   if (auth.currentUser) return Promise.resolve(auth.currentUser)
+  if (REQUIRE_ACCOUNT) {
+    return auth
+      .authStateReady()
+      .then(() => auth.currentUser ?? Promise.reject(new Error('로그인이 필요해요.')))
+  }
   if (!signingIn) {
     signingIn = new Promise<User>((resolve, reject) => {
       const off = onAuthStateChanged(auth, (u) => {
@@ -80,4 +103,34 @@ export function ensureSignedIn(): Promise<User> {
     })
   }
   return signingIn
+}
+
+/** 이메일·비밀번호 로그인 (계정 로그인 모드) */
+export async function signInWithEmail(email: string, password: string): Promise<User> {
+  if (!getDb() || !app) throw new Error('Firebase 설정이 없습니다.')
+  signingIn = null
+  const cred = await signInWithEmailAndPassword(getAuth(app), email, password)
+  return cred.user
+}
+
+/** Firebase 로그아웃. 다음 로그인이 이전 사용자로 이어지지 않도록 캐시도 비웁니다. */
+export async function signOutFirebase() {
+  signingIn = null
+  if (!app) return
+  await signOut(getAuth(app))
+}
+
+/** 저장된 로그인 복원이 끝난 뒤의 현재 사용자 (없으면 null) */
+export async function restoreSession(): Promise<User | null> {
+  if (!getDb() || !app) return null
+  const auth = getAuth(app)
+  await auth.authStateReady()
+  return auth.currentUser
+}
+
+/** 서버 함수에 보낼 로그인 토큰 (로그인이 없으면 null) */
+export async function getIdToken(): Promise<string | null> {
+  if (!getDb() || !app) return null
+  const user = getAuth(app).currentUser
+  return user ? user.getIdToken() : null
 }

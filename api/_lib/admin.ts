@@ -13,8 +13,21 @@ export function firebaseAdmin() {
     if (!raw) throw new Error('FIREBASE_SERVICE_ACCOUNT 환경 변수가 설정되지 않았습니다.')
     const json = raw.trim().startsWith('{') ? raw : Buffer.from(raw, 'base64').toString('utf8')
     initializeApp({ credential: cert(JSON.parse(json)) })
+    // 한 번 더 막기: 비어 있는 값(undefined)이 섞여도 저장이 실패하지 않게 합니다. (처음 한 번만 설정 가능)
+    getFirestore().settings({ ignoreUndefinedProperties: true })
   }
   return { db: getFirestore(), messaging: getMessaging() }
 }
 
-export const isValidCode = (code: unknown): code is string => typeof code === 'string' && /^[A-Z0-9]{6}$/.test(code)
+/**
+ * 로그인 토큰 확인용 Auth. 복지사 화면의 요약 새로고침에서만 쓰므로 필요할 때만 불러옵니다.
+ * (모든 서버 함수가 처음부터 불러오면, 이 모듈을 불러오다 실패할 때 알림·점검까지 함께 멈춥니다)
+ */
+export async function adminAuth() {
+  firebaseAdmin()
+  const { getAuth } = await import('firebase-admin/auth')
+  return getAuth()
+}
+
+export const isValidCode = (code: unknown): code is string =>
+  typeof code === 'string' && /^[A-Z0-9]{6}$/.test(code)

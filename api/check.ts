@@ -1,9 +1,3 @@
-import type { Firestore } from 'firebase-admin/firestore'
-import type { Messaging } from 'firebase-admin/messaging'
-import { firebaseAdmin } from './_lib/admin.js'
-import { findElderReminders, findGuardianAlerts, kstClock, type DayDoc, type FamilyDoc } from './_lib/care.js'
-import { pushToFamily } from './_lib/push.js'
-
 /**
  * GET /api/check  (GitHub Actions 가 10분마다 부름, Authorization: Bearer CRON_SECRET)
  *
@@ -17,73 +11,25 @@ export async function GET(request: Request) {
   if (!secret || request.headers.get('authorization') !== `Bearer ${secret}`) {
     return Response.json({ error: '권한 없음' }, { status: 401 })
   }
-  const { db, messaging } = firebaseAdmin()
-  return Response.json(await runCheck(db, messaging, new Date()))
-}
-
-/** 실제 확인 작업 (시험에서 가짜 저장소로 부를 수 있도록 분리) */
-export async function runCheck(db: Firestore, messaging: Messaging, now: Date) {
-  const { dateKey } = kstClock(now)
-
-  // 알림을 받을 기기가 등록된 가족 코드
-  const tokenSnap = await db.collectionGroup('pushTokens').get()
-  const codes = [...new Set(tokenSnap.docs.map((d) => d.ref.parent.parent?.id).filter(Boolean))] as string[]
-
-  const summary = { families: codes.length, guardianAlerts: 0, elderReminders: 0 }
-
-  for (const code of codes) {
-    const familyRef = db.collection('families').doc(code)
-    const [familySnap, daySnap, alertSnap, logSnap] = await Promise.all([
-      familyRef.get(),
-      familyRef.collection('days').doc(dateKey).get(),
-      // 오늘 키(YYYY-MM-DD-…)로 시작하는 알림만
-      familyRef.collection('alerts').where('key', '>=', dateKey).where('key', '<', `${dateKey}`).get(),
-      familyRef.collection('pushLog').where('key', '>=', dateKey).where('key', '<', `${dateKey}`).get(),
+  try {
+    // 서버 모듈은 여기서 불러옵니다. 불러오다 실패해도 함수 전체가 죽지 않고 원인을 돌려줄 수 있게 합니다.
+    const [{ firebaseAdmin }, { runCheck }] = await Promise.all([
+      import('./_lib/admin.js'),
+      import('./_lib/checkJob.js'),
     ])
-    if (!familySnap.exists) continue
-    const family = familySnap.data() as FamilyDoc
-    const day = daySnap.exists ? (daySnap.data() as DayDoc) : undefined
-
-    // 1) 보호자에게: 어르신 앱이 이미 만든 알림(같은 key)은 건너뜁니다.
-    const alertKeys = new Set(alertSnap.docs.map((d) => d.get('key') as string))
-    for (const a of findGuardianAlerts(family, day, now, alertKeys)) {
-      const id = `srv-${a.key}`
-      try {
-        await familyRef.collection('alerts').doc(id).create({
-          id,
-          key: a.key,
-          kind: a.kind,
-          reason: a.reason,
-          at: now.toISOString(),
-          channels: ['webpush'],
-          recipients: [family.guardianName, '담당 사회복지사'],
-          by: 'server',
-          pushedAt: now.toISOString(),
-        })
-      } catch {
-        continue // 이미 있음 (동시에 실행된 경우)
-      }
-      await pushToFamily(db, messaging, code, 'guardian', {
-        title: '늘봄 안부 알림',
-        body: a.reason,
-        url: `/guardian?code=${code}`,
-        tag: id,
-      })
-      summary.guardianAlerts++
-    }
-
-    // 2) 어르신께: 약 드실 시간 안내 (하루에 약마다 한 번)
-    const sentKeys = new Set(logSnap.docs.map((d) => d.get('key') as string))
-    for (const r of findElderReminders(family, day, now, sentKeys)) {
-      try {
-        await familyRef.collection('pushLog').doc(r.key).create({ key: r.key, at: now.toISOString() })
-      } catch {
-        continue
-      }
-      await pushToFamily(db, messaging, code, 'elder', { title: '늘봄', body: r.body, url: '/', tag: r.key })
-      summary.elderReminders++
-    }
+    const { db, messaging } = firebaseAdmin()
+    return Response.json(await runCheck(db, messaging, new Date()))
+  } catch (e) {
+    // 원인을 GitHub 점검 기록에서 바로 볼 수 있도록 오류 내용을 돌려줍니다. (비밀값은 담기지 않음)
+    const err = e as Error
+    console.log(JSON.stringify({ check: 'failed', error: String(err?.message ?? e), stack: err?.stack }))
+    return Response.json(
+      {
+        error: '점검 실패',
+        message: String(err?.message ?? e).slice(0, 300),
+        where: err?.stack?.split('\n').slice(1, 4),
+      },
+      { status: 500 },
+    )
   }
-
-  return summary
 }

@@ -1,7 +1,9 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { isFirebaseAuth } from '@/features/auth/lib/authMode'
 import type { Role } from '@/features/auth/lib/demoAccounts'
 import type { UserProfile } from '@/features/auth/types'
+import { signOutFirebase } from '@/shared/api/firebase'
 
 export type SocialProvider = 'kakao' | 'naver' | 'guest'
 
@@ -44,7 +46,11 @@ export const useUserStore = create<UserState>()(
         set((s) => ({ isLoggedIn: true, provider, role: 'elder', profile: { ...s.profile, ...partial } })),
       loginAs: (role, partial) =>
         set((s) => ({ isLoggedIn: true, provider: 'guest', role, profile: { ...s.profile, ...partial } })),
-      logout: () => set({ isLoggedIn: false, provider: null, role: null }),
+      logout: () => {
+        set({ isLoggedIn: false, provider: null, role: null })
+        // 계정 로그인 모드에서는 서버 로그인도 끊어, 다음 사람이 이전 계정으로 이어지지 않게 합니다.
+        if (isFirebaseAuth) void signOutFirebase().catch(() => {})
+      },
       updateProfile: (partial) => set((s) => ({ profile: { ...s.profile, ...partial } })),
     }),
     { name: 'neulbom-user' },

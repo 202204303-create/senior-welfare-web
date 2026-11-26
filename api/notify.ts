@@ -2,6 +2,7 @@ import type { Firestore } from 'firebase-admin/firestore'
 import type { Messaging } from 'firebase-admin/messaging'
 import { firebaseAdmin, isValidCode } from './_lib/admin.js'
 import { pushToFamily } from './_lib/push.js'
+import { refreshSummary } from './_lib/summary.js'
 
 /**
  * POST /api/notify  { code, alertId }
@@ -39,10 +40,23 @@ export async function sendAlertPush(db: Firestore, messaging: Messaging, code: s
 
   const sos = alert.kind === 'sos'
   const sent = await pushToFamily(db, messaging, code, 'guardian', {
-    title: sos ? '늘봄 긴급 알림' : '늘봄 안부 알림',
+    title: sos ? '🚨 늘봄 긴급' : '⚠️ 늘봄 확인 필요',
+    level: sos ? 'urgent' : 'warn',
     body: alert.reason,
     url: `/guardian?code=${code}`,
     tag: alertId,
   })
+  // 긴급 요청은 담당 복지사에게도 바로 보냅니다. (알림 정책: 복지사는 긴급·에스컬레이션만 받음)
+  if (sos) {
+    await pushToFamily(db, messaging, code, 'worker', {
+      title: '🚨 늘봄 긴급',
+      level: 'urgent',
+      body: alert.reason,
+      url: '/worker',
+      tag: `${alertId}-worker`,
+    })
+  }
+  // 복지사 화면의 요약을 바로 갱신합니다. (실패해도 알림에는 영향 없음)
+  await refreshSummary(db, code)
   return { sent, skipped: false }
 }

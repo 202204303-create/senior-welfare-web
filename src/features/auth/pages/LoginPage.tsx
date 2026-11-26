@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { BigButton, StatusNote, TextField } from '@/shared/ui'
 import { useAccountAuth } from '@/features/auth/hooks/useAccountAuth'
+import { isFirebaseAuth } from '@/features/auth/lib/authMode'
 import { DEMO_ACCOUNTS, findAccount, homePathOf } from '@/features/auth/lib/demoAccounts'
 import { useUserStore, type SocialProvider } from '@/features/auth/store/useUserStore'
 
@@ -15,19 +16,32 @@ const FEATURES = [
 
 export function LoginPage() {
   const { isLoggedIn, role, login } = useUserStore()
-  const { signIn } = useAccountAuth()
+  const { signIn, signInFirebase } = useAccountAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [pending, setPending] = useState<SocialProvider | null>(null)
   const [id, setId] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [signingIn, setSigningIn] = useState(false)
   const from = (location.state as { from?: string } | null)?.from ?? '/'
 
   if (isLoggedIn) return <Navigate to={role && role !== 'elder' ? homePathOf(role) : from} replace />
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault()
+    if (isFirebaseAuth) {
+      if (!id.trim() || !password) {
+        setError('아이디와 비밀번호를 입력해 주세요.')
+        return
+      }
+      setError(null)
+      setSigningIn(true)
+      const message = await signInFirebase(id, password, from)
+      setSigningIn(false)
+      if (message) setError(message)
+      return
+    }
     const account = findAccount(id, password)
     if (!account) {
       setError('아이디나 비밀번호가 맞지 않아요. 아래 시연용 계정을 눌러 보세요.')
@@ -37,7 +51,7 @@ export function LoginPage() {
     signIn(account, from)
   }
 
-  // 로그인 없이 둘러보기: 사용자(어르신) 화면을 바로 엽니다.
+  // 처음 시작하기(가입 없이): 사용자(어르신) 화면을 바로 엽니다.
   const guest = () => {
     setPending('guest')
     setTimeout(() => {
@@ -88,55 +102,63 @@ export function LoginPage() {
             autoComplete="current-password"
           />
           {error && <StatusNote tone="warn">{error}</StatusNote>}
-          <BigButton type="submit" size="xl" fullWidth icon={<UserRound />}>
+          <BigButton type="submit" size="xl" fullWidth icon={<UserRound />} loading={signingIn}>
             로그인
           </BigButton>
 
-          <fieldset className="rounded-2xl bg-brand-50/80 p-3 ring-1 ring-brand-100">
-            <legend className="px-2 text-sm font-bold text-brand-800">시연용 계정 (눌러서 채우기)</legend>
-            <ul className="space-y-2">
-              {DEMO_ACCOUNTS.map((a) => (
-                <li key={a.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setId(a.id)
-                      setPassword(a.password)
-                      setError(null)
-                    }}
-                    className="flex min-h-14 w-full flex-col items-start gap-1 rounded-xl bg-white/90 px-4 py-3 text-left ring-1 ring-brand-100 transition active:scale-[0.98]"
-                  >
-                    <span>
-                      <span className="block text-base font-bold">{a.label}</span>
-                      <span className="block text-sm text-ink-soft">{a.desc}</span>
-                    </span>
-                    <span className="font-mono text-sm font-bold text-brand-700">
-                      {a.id} / {a.password}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-2 px-1 text-xs text-ink-soft">
-              시연용이라 아이디와 비밀번호가 화면에 보여요. 실제 서비스에서는 바뀝니다.
+          {isFirebaseAuth ? (
+            <p className="px-1 text-center text-sm text-ink-soft">
+              관리자가 알려 준 아이디와 비밀번호로 로그인해 주세요.
             </p>
-          </fieldset>
+          ) : (
+            <>
+              <fieldset className="rounded-2xl bg-brand-50/80 p-3 ring-1 ring-brand-100">
+                <legend className="px-2 text-sm font-bold text-brand-800">시연용 계정 (눌러서 채우기)</legend>
+                <ul className="space-y-2">
+                  {DEMO_ACCOUNTS.map((a) => (
+                    <li key={a.id}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setId(a.id)
+                          setPassword(a.password)
+                          setError(null)
+                        }}
+                        className="flex min-h-14 w-full flex-col items-start gap-1 rounded-xl bg-white/90 px-4 py-3 text-left ring-1 ring-brand-100 transition active:scale-[0.98]"
+                      >
+                        <span>
+                          <span className="block text-base font-bold">{a.label}</span>
+                          <span className="block text-sm text-ink-soft">{a.desc}</span>
+                        </span>
+                        <span className="font-mono text-sm font-bold text-brand-700">
+                          {a.id} / {a.password}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-2 px-1 text-xs text-ink-soft">
+                  시연용이라 아이디와 비밀번호가 화면에 보여요. 실제 서비스에서는 바뀝니다.
+                </p>
+              </fieldset>
 
-          <BigButton
-            variant="ghost"
-            fullWidth
-            onClick={guest}
-            disabled={pending !== null}
-            loading={pending === 'guest'}
-          >
-            로그인 없이 둘러보기
-          </BigButton>
-          <Link
-            to="/guardian"
-            className="flex min-h-12 items-center justify-center rounded-2xl text-base font-bold text-violet-700 hover:bg-violet-50"
-          >
-            보호자이신가요? 보호자 화면으로
-          </Link>
+              <BigButton
+                variant="ghost"
+                fullWidth
+                onClick={guest}
+                disabled={pending !== null}
+                loading={pending === 'guest'}
+              >
+                처음 시작하기 (가입 없이)
+              </BigButton>
+              <Link
+                to="/guardian"
+                className="flex min-h-12 items-center justify-center rounded-2xl text-base font-bold text-violet-700 hover:bg-violet-50"
+              >
+                보호자이신가요? 보호자 화면으로
+              </Link>
+            </>
+          )}
         </form>
 
         <p className="mt-5 flex items-center justify-center gap-1.5 text-center text-sm text-ink-soft">
