@@ -19,6 +19,9 @@ export interface AlertLog {
   ackAt?: string
   /** 확인한 보호자 이름 */
   ackBy?: string
+  /** 보호자가 직접 확인한 시각 (복지사가 먼저 확인했어도 보호자는 따로 확인할 수 있음) */
+  guardianAckAt?: string
+  guardianAckBy?: string
 }
 
 export interface DayRecord {

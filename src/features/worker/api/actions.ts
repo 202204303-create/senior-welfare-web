@@ -107,7 +107,14 @@ export async function undoActions(saved: SavedAction): Promise<void> {
     const snap = await getDoc(ref)
     // 그 사이 보호자가 직접 확인했다면 그대로 둡니다.
     if (snap.exists() && snap.get('ackBy') === WORKER_NAME) {
-      batch.update(ref, { ackAt: deleteField(), ackBy: deleteField() })
+      const gAt = snap.get('guardianAckAt')
+      // 보호자가 먼저 확인해 둔 알림이면 보호자 확인으로 되돌리고, 아니면 확인 표시를 지웁니다.
+      batch.update(
+        ref,
+        gAt
+          ? { ackAt: gAt, ackBy: snap.get('guardianAckBy') ?? '보호자' }
+          : { ackAt: deleteField(), ackBy: deleteField() },
+      )
     }
   }
   await batch.commit()

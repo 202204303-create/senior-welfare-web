@@ -64,9 +64,15 @@ describe('어르신', () => {
   test('자기 가족 정보·기록·알림을 읽고 쓸 수 있다', async () => {
     const db = as('elder1')
     await assertSucceeds(getDoc(doc(db, `families/${CODE}`)))
-    await assertSucceeds(setDoc(doc(db, `families/${CODE}`), { elderName: '김영수', lastSeenAt: 'now' }, { merge: true }))
-    await assertSucceeds(setDoc(doc(db, `families/${CODE}/days/2026-11-18`), { wakeUpAt: 'y', takenMeds: {} }))
-    await assertSucceeds(setDoc(doc(db, `families/${CODE}/alerts/a-2`), { id: 'a-2', reason: '긴급', at: 'x' }))
+    await assertSucceeds(
+      setDoc(doc(db, `families/${CODE}`), { elderName: '김영수', lastSeenAt: 'now' }, { merge: true }),
+    )
+    await assertSucceeds(
+      setDoc(doc(db, `families/${CODE}/days/2026-11-18`), { wakeUpAt: 'y', takenMeds: {} }),
+    )
+    await assertSucceeds(
+      setDoc(doc(db, `families/${CODE}/alerts/a-2`), { id: 'a-2', reason: '긴급', at: 'x' }),
+    )
     await assertSucceeds(getDocs(collection(db, `families/${CODE}/alerts`)))
   })
 
@@ -78,7 +84,11 @@ describe('어르신', () => {
 
   test('보호자·복지사의 확인 표시(ackAt, ackBy)는 바꿀 수 없지만 다른 필드는 고칠 수 있다', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), `families/${CODE}/alerts/a-1`), { ackAt: 't1', ackBy: '민지' }, { merge: true })
+      await setDoc(
+        doc(ctx.firestore(), `families/${CODE}/alerts/a-1`),
+        { ackAt: 't1', ackBy: '민지' },
+        { merge: true },
+      )
     })
     const db = as('elder1')
     await assertFails(setDoc(doc(db, `families/${CODE}/alerts/a-1`), { ackAt: 't2' }, { merge: true }))
@@ -126,6 +136,13 @@ describe('보호자', () => {
     await assertFails(updateDoc(doc(db, `families/${CODE}/alerts/a-1`), { ackAt: 'now', reason: 'x' }))
   })
 
+  test('복지사가 먼저 확인한 알림도 보호자가 따로 확인(guardianAckAt)할 수 있다', async () => {
+    const db = as('guardian1')
+    await assertSucceeds(
+      updateDoc(doc(db, `families/${CODE}/alerts/a-1`), { guardianAckAt: 'now', guardianAckBy: '김민지' }),
+    )
+  })
+
   test('기록·가족 정보를 고치거나 요약·처리 기록을 읽을 수 없다', async () => {
     const db = as('guardian1')
     await assertFails(setDoc(doc(db, `families/${CODE}/days/2026-11-17`), { takenMeds: { 'm-1': 'x' } }))
@@ -168,12 +185,16 @@ describe('복지사', () => {
   test('자기 담당 배정 목록만 읽을 수 있다', async () => {
     await assertSucceeds(getDocs(collection(as('worker1'), 'workers/worker1/assignments')))
     await assertFails(getDocs(collection(as('worker2'), 'workers/worker1/assignments')))
-    await assertFails(setDoc(doc(as('worker1'), `workers/worker1/assignments/${OTHER}`), { displayName: 'x' }))
+    await assertFails(
+      setDoc(doc(as('worker1'), `workers/worker1/assignments/${OTHER}`), { displayName: 'x' }),
+    )
   })
 
   test('알림 확인만 할 수 있고 기록·가족 정보는 고칠 수 없다', async () => {
     const db = as('worker1')
-    await assertSucceeds(updateDoc(doc(db, `families/${CODE}/alerts/a-1`), { ackAt: 'now', ackBy: '담당 사회복지사' }))
+    await assertSucceeds(
+      updateDoc(doc(db, `families/${CODE}/alerts/a-1`), { ackAt: 'now', ackBy: '담당 사회복지사' }),
+    )
     await assertFails(updateDoc(doc(db, `families/${CODE}/alerts/a-1`), { reason: 'x' }))
     await assertFails(setDoc(doc(db, `families/${CODE}/days/2026-11-17`), { takenMeds: { 'm-1': 'x' } }))
     await assertFails(updateDoc(doc(db, `families/${CODE}`), { elderName: 'x' }))
