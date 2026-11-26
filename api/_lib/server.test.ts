@@ -111,7 +111,7 @@ test('어르신 앱의 긴급 요청은 보호자에게 한 번만 "긴급"으�
   const again = await sendAlertPush(db as unknown as Firestore, fcm as unknown as Messaging, CODE, 'a-9')
   assert.deepEqual(first, { sent: 1, skipped: false })
   assert.deepEqual(again, { sent: 0, skipped: true })
-  assert.equal(fcm.sent[0].data.title, '늘봄 긴급 알림 · 김영수 님') // 어르신이 여러 명이어도 구분되게 이름을 붙임
+  assert.equal(fcm.sent[0].data.title, '🚨 늘봄 긴급 · 김영수 님') // 어르신이 여러 명이어도 구분되게 이름을 붙임
   assert.equal(fcm.sent[0].data.url, `/guardian?code=${CODE}`)
 })
 

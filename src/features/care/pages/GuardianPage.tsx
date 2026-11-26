@@ -14,6 +14,7 @@ import {
   Siren,
   Smartphone,
   Sun,
+  Trash2,
   UserRoundSearch,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -49,7 +50,8 @@ import { todayKey, type AlertLog, type DayRecord } from '@/features/care/store/u
  */
 function notify(message: string, tone: NoticeTone, key: string) {
   useGuardianNoticeStore.getState().addNotice({ message, tone, key })
-  showSystemNotification('늘봄 안부 알림', message)
+  const urgent = tone === 'danger'
+  showSystemNotification(urgent ? '🚨 늘봄 긴급' : '⚠️ 늘봄 확인 필요', message, urgent ? 'urgent' : 'warn')
 }
 
 /** 보호자 화면이 직접 알린 경고 키 (새로고침해도 같은 경고를 반복하지 않도록 저장) */
@@ -66,6 +68,24 @@ const saveNotified = (code: string, keys: string[]) => {
     localStorage.setItem(notifiedKey(code), JSON.stringify(keys.slice(-100)))
   } catch {
     /* 저장이 막힌 브라우저 */
+  }
+}
+
+/** 보호자가 지운 알림 (이 기기의 화면에서만 숨김. 기록 자체는 남겨 복지사 확인·에스컬레이션에 씀) */
+const hiddenKey = (code: string) => `neulbom-guardian-hidden-${code}`
+const readHidden = (code: string): string[] => {
+  try {
+    const v = JSON.parse(localStorage.getItem(hiddenKey(code)) ?? '[]')
+    return Array.isArray(v) ? v : []
+  } catch {
+    return []
+  }
+}
+const saveHidden = (code: string, ids: string[]) => {
+  try {
+    localStorage.setItem(hiddenKey(code), JSON.stringify(ids.slice(-200)))
+  } catch {
+    /* 저장이 막힌 브라우저에서는 이번에만 숨김 */
   }
 }
 
@@ -320,6 +340,13 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
   const [error, setError] = useState<string | null>(null)
   const [retry, setRetry] = useState(0)
   const [acking, setAcking] = useState<string | null>(null)
+  const [hidden, setHidden] = useState<string[]>(() => readHidden(code))
+  const [showHidden, setShowHidden] = useState(false)
+  const hide = (ids: string[]) => {
+    const next = [...new Set([...hidden, ...ids])]
+    saveHidden(code, next)
+    setHidden(next)
+  }
   const seen = useRef<Set<string> | null>(null)
 
   useEffect(() => {
@@ -425,6 +452,10 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
       />
     )
 
+  // 지운 알림은 숨기고(다시 보기 가능), 확인하지 않은 알림은 지울 수 없게 항상 보여 줍니다.
+  const visibleAlerts = showHidden ? alerts : alerts.filter((a) => !a.ackAt || !hidden.includes(a.id))
+  const ackedVisible = visibleAlerts.filter((a) => a.ackAt && !hidden.includes(a.id))
+  const hiddenCount = alerts.filter((a) => a.ackAt && hidden.includes(a.id)).length
   const nowMin = now.getHours() * 60 + now.getMinutes()
   const [dh, dm] = family.wakeUpDeadline.split(':').map(Number)
   const wakeOverdue = !today.wakeUpAt && nowMin > dh * 60 + dm
@@ -575,66 +606,104 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
         <div className="mb-4">
           <PushPermission role="guardian" familyCode={code} />
         </div>
-        {alerts.length === 0 ? (
+        {visibleAlerts.length === 0 ? (
           <p className="rounded-2xl bg-white/70 p-4 text-center text-base text-ink-soft">
-            아직 받은 알림이 없어요.
+            {alerts.length === 0 ? '아직 받은 알림이 없어요.' : '받은 알림을 모두 지웠어요.'}
           </p>
         ) : (
-          <ul className="max-h-[32rem] space-y-2 overflow-y-auto">
-            {alerts.map((a) => (
-              <li
-                key={a.id}
-                className={`rounded-2xl p-4 ring-1 ${
-                  a.kind === 'sos' ? 'bg-rose-50/90 ring-rose-200' : 'bg-amber-50/90 ring-amber-100'
-                }`}
-              >
-                <p className="flex items-start gap-2 text-base font-semibold">
-                  {a.kind === 'sos' && <Siren className="mt-0.5 size-5 shrink-0 text-rose-600" aria-hidden />}
-                  {a.reason}
-                </p>
-                <p className="mt-1 text-sm text-ink-soft">
-                  {new Date(a.at).toLocaleString('ko-KR', {
-                    month: 'numeric',
-                    day: 'numeric',
-                    hour: 'numeric',
-                    minute: '2-digit',
-                  })}
-                  {' · '}
-                  {a.channels
-                    .filter((c) => READY_CHANNELS.includes(c))
-                    .map((c) => CHANNEL_LABEL[c])
-                    .join(', ') || '보호자 화면'}
-                </p>
-                {a.ackAt ? (
-                  <p className="mt-2 flex items-center gap-1.5 text-sm font-bold text-emerald-700">
-                    <CheckCheck className="size-4" aria-hidden /> {fmtTime(a.ackAt)}에 확인했어요
+          <>
+            {ackedVisible.length > 1 && (
+              <div className="mb-2 flex justify-end">
+                <BigButton
+                  size="md"
+                  variant="ghost"
+                  icon={<Trash2 />}
+                  onClick={() => hide(ackedVisible.map((a) => a.id))}
+                >
+                  확인한 알림 모두 지우기
+                </BigButton>
+              </div>
+            )}
+            <ul className="max-h-[32rem] space-y-2 overflow-y-auto">
+              {visibleAlerts.map((a) => (
+                <li
+                  key={a.id}
+                  className={`rounded-2xl p-4 ring-1 ${
+                    a.kind === 'sos' ? 'bg-rose-50/90 ring-rose-200' : 'bg-amber-50/90 ring-amber-100'
+                  }`}
+                >
+                  <p className="flex items-start gap-2 text-base font-semibold">
+                    {a.kind === 'sos' && (
+                      <Siren className="mt-0.5 size-5 shrink-0 text-rose-600" aria-hidden />
+                    )}
+                    {a.reason}
                   </p>
-                ) : (
-                  <BigButton
-                    size="md"
-                    variant={a.kind === 'sos' ? 'danger' : 'primary'}
-                    icon={<Check />}
-                    className="mt-3"
-                    fullWidth
-                    loading={acking === a.id}
-                    disabled={acking !== null}
-                    onClick={() => ack(a)}
-                  >
-                    확인했어요
-                  </BigButton>
-                )}
-                {ackError?.id === a.id && (
-                  <StatusNote tone="warn" className="mt-2" onClose={() => setAckError(null)}>
-                    확인 표시를 저장하지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요. (
-                    {ackError.message})
-                  </StatusNote>
-                )}
-              </li>
-            ))}
-          </ul>
+                  <p className="mt-1 text-sm text-ink-soft">
+                    {new Date(a.at).toLocaleString('ko-KR', {
+                      month: 'numeric',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}
+                    {' · '}
+                    {a.channels
+                      .filter((c) => READY_CHANNELS.includes(c))
+                      .map((c) => CHANNEL_LABEL[c])
+                      .join(', ') || '보호자 화면'}
+                  </p>
+                  {a.ackAt ? (
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <p className="flex items-center gap-1.5 text-sm font-bold text-emerald-700">
+                        <CheckCheck className="size-4" aria-hidden /> {fmtTime(a.ackAt)}에 확인했어요
+                      </p>
+                      {!hidden.includes(a.id) && (
+                        <button
+                          type="button"
+                          onClick={() => hide([a.id])}
+                          aria-label={`이 알림 지우기: ${a.reason}`}
+                          className="flex min-h-11 shrink-0 items-center gap-1 rounded-xl px-3 text-sm font-bold whitespace-nowrap text-ink-soft hover:bg-white"
+                        >
+                          <Trash2 className="size-4" aria-hidden /> 지우기
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <BigButton
+                      size="md"
+                      variant={a.kind === 'sos' ? 'danger' : 'primary'}
+                      icon={<Check />}
+                      className="mt-3"
+                      fullWidth
+                      loading={acking === a.id}
+                      disabled={acking !== null}
+                      onClick={() => ack(a)}
+                    >
+                      확인했어요
+                    </BigButton>
+                  )}
+                  {ackError?.id === a.id && (
+                    <StatusNote tone="warn" className="mt-2" onClose={() => setAckError(null)}>
+                      확인 표시를 저장하지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요. (
+                      {ackError.message})
+                    </StatusNote>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+        {hiddenCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowHidden((v) => !v)}
+            className="mt-2 min-h-11 w-full rounded-xl text-sm font-bold text-brand-700 hover:bg-brand-50"
+          >
+            {showHidden ? '지운 알림 다시 숨기기' : `지운 알림 ${hiddenCount}개 다시 보기`}
+          </button>
         )}
         <p className="mt-3 text-sm text-ink-soft">
-          이 화면을 켜 두시면 새 알림이 오는 즉시 화면 위쪽과 휴대폰 알림으로 알려 드려요. 화면 알림은
+          확인한 알림은 '지우기'로 이 화면에서 지울 수 있어요. (확인 전인 알림은 먼저 '확인했어요'를 눌러
+          주세요) 이 화면을 켜 두시면 새 알림이 오는 즉시 화면 위쪽과 휴대폰 알림으로 알려 드려요. 화면 알림은
           '확인했어요'를 누를 때까지 남아요. 30분 넘게 확인하지 않으면 담당 복지사에게도 알려요. 어르신 앱이
           꺼져 있어도 기상·복약 미확인은 이 화면이 직접 알려 드려요.
         </p>

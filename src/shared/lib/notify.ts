@@ -4,7 +4,11 @@
  * 안드로이드 크롬과 홈 화면에 설치한 앱(PWA)은 `new Notification()`을 지원하지 않으므로
  * 서비스 워커(registration.showNotification)로 띄우고, 서비스 워커가 없을 때만 기본 방식을 씁니다.
  */
-export function showSystemNotification(title: string, body: string) {
+/** 급한 정도: urgent(긴급, 강한 진동) · warn(확인 필요, 보통 진동) — 서버 휴대폰 알림(push-sw.js)과 같게 맞춤 */
+export type NotifyLevel = 'urgent' | 'warn'
+const VIBRATE: Record<NotifyLevel, number[]> = { urgent: [500, 150, 500, 150, 900], warn: [250, 120, 250] }
+
+export function showSystemNotification(title: string, body: string, level: NotifyLevel = 'warn') {
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
   // requireInteraction: 사용자가 직접 닫을 때까지 알림이 화면에 남습니다. (지원하는 기기에서)
   const options: NotificationOptions = {
@@ -13,6 +17,8 @@ export function showSystemNotification(title: string, body: string) {
     badge: '/pwa-192x192.png',
     tag: body,
     requireInteraction: true,
+    // 진동은 안드로이드에서 동작합니다. (TS 기본 타입에 없어 확장)
+    ...({ vibrate: VIBRATE[level] } as object),
   }
 
   const fallback = () => {
