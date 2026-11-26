@@ -1,5 +1,5 @@
 import type { Firestore } from 'firebase-admin/firestore'
-import { firebaseAdmin, isValidCode } from './_lib/admin.js'
+import { adminAuth, firebaseAdmin, isValidCode } from './_lib/admin.js'
 import { refreshSummary } from './_lib/summary.js'
 
 /**
@@ -18,7 +18,8 @@ export async function POST(request: Request) {
   }
   if (!isValidCode(body.code)) return Response.json({ error: '잘못된 요청' }, { status: 400 })
 
-  const { db, auth } = firebaseAdmin()
+  const { db } = firebaseAdmin()
+  const auth = await adminAuth()
   const result = await refreshForWorker(
     db,
     async (token) => ({ uid: (await auth.verifyIdToken(token)).uid }),

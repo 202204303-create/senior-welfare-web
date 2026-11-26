@@ -249,6 +249,7 @@ workers/{uid}/assignments/{code}         복지사 담당 배정 (이름·동·�
 | 11/26 | 202204303-create      | 복지사 오늘 큐 화면: 등급 순 정렬·묶음·등급별 필터, 처리 결과 기록(되돌리기 5초), 정정 기록으로 되돌림, 복지사 알림 기기 등록, 요약 새로고침 API(`/api/refresh-summary`, 담당 확인), 큐 규칙 시험 8개 추가                                                                                                                                                 | #35    |
 | 11/26 | 202204303-create      | 계정 로그인·역할 규칙: Firebase 이메일 로그인(`VITE_AUTH_MODE=firebase`), `users/{uid}` 역할·가족 연결, 복지사 담당 배정 읽기, 역할별 규칙 `firestore.roles.rules`(에뮬레이터 시험 20개), 계정 만들기 `scripts/seed-accounts.mjs`. 켜는 순서는 README 8번                                                                                                  | #34    |
 | 11/26 | k367604-beep (김민준) | 자동 점검 500 오류 수정: 설정이 덜 된 가족(기상 시간·약이 없는 문서, 잘못된 날짜)에서 점검 전체가 멈추던 문제. 가족 문서를 안전하게 정리하고 가족마다 오류를 따로 처리(응답에 `errors` 표시). 복지사 요약은 최근 7일 사용·알림 기기·복지사 담당 가족만 계산해 Firestore 무료 한도 보호                                                                     | #36    |
+| 11/26 | k367604-beep (김민준) | 자동 점검 `FUNCTION_INVOCATION_FAILED`(서버 함수가 불러오다 죽음) 대응: `firebase-admin/auth` 를 필요할 때만 불러오고, `/api/check` 는 작업 모듈(`api/_lib/checkJob.ts`)을 안에서 불러와 실패해도 원인을 돌려줌. 점검 기록에 서버 응답을 출력                                                                                                              | #38    |
 
 ### 남은 할 일
 
