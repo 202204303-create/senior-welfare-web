@@ -1,23 +1,20 @@
 import {
-  AlarmClock,
   BellRing,
   CalendarDays,
   Check,
-  CheckCheck,
   KeyRound,
   Phone,
   Pill,
   Plus,
   ServerOff,
-  ShieldAlert,
+  Settings2,
   ShieldCheck,
-  Siren,
   Smartphone,
   Sun,
   Trash2,
   UserRoundSearch,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { MAX_ELDERS, initialCodes, saveCodes, saveSelected } from '@/features/care/lib/guardianCodes'
 import { registerPushDevice, setMorningNotice } from '@/shared/api/push'
@@ -25,34 +22,40 @@ import { LogoutButton } from '@/features/auth/components/LogoutButton'
 import { FontScaleButton, Logo } from '@/shared/layout/AppLayout'
 import { isFirebaseEnabled } from '@/shared/api/firebase'
 import { useNow } from '@/shared/hooks/useNow'
-import { useGuardianNoticeStore, type NoticeTone } from '@/shared/store/useNoticeStore'
 import { showSystemNotification } from '@/shared/lib/notify'
 import {
   BigButton,
   EmptyState,
+  Fold,
   ErrorState,
   InfoCard,
   LoadingList,
-  NoticeStack,
   StatusNote,
   TextField,
 } from '@/shared/ui'
 import { hasAssignedWorker } from '@/features/auth/lib/demoAccounts'
 import { PushPermission } from '@/features/care/components/PushPermission'
 import { ackAlert, watchAlerts, watchDays, watchFamily, type FamilyInfo } from '@/features/care/api/family'
-import { findCareIssues, fromNow, type CareIssue } from '@/features/care/lib/guardianIssues'
+import {
+  buildGuardianTodos,
+  findCareIssues,
+  fromNow,
+  type CareIssue,
+} from '@/features/care/lib/guardianIssues'
 import { STATUS_STYLE } from '@/features/care/lib/status'
-import { CHANNEL_LABEL, READY_CHANNELS, getMedStatus } from '@/features/care/hooks/useCareWatcher'
+import { getMedStatus } from '@/features/care/hooks/useCareWatcher'
+import { AlertRow } from '@/features/care/components/AlertRow'
+import { alertLevelOf } from '@/features/care/lib/alertDisplay'
 import { todayKey, type AlertLog, type DayRecord } from '@/features/care/store/useCareStore'
 
 /**
- * 새 알림을 '지워지지 않는 화면 알림'과 휴대폰 알림(권한이 있을 때)으로 알려 줍니다.
- * 화면 알림은 보호자가 '확인했어요'를 누를 때까지 남습니다.
+ * 새 알림을 휴대폰 알림(권한이 있을 때)으로 알려 줍니다. 제목에 어르신 이름을 넣어 누구 일인지 바로 알 수 있게 합니다.
+ * 화면에서는 '확인할 일' 한곳에만 보여 주고, '확인했어요'를 누를 때까지 남습니다.
  */
-function notify(message: string, tone: NoticeTone, key: string) {
-  useGuardianNoticeStore.getState().addNotice({ message, tone, key })
+function notify(message: string, tone: 'danger' | 'warn', elderName?: string) {
   const urgent = tone === 'danger'
-  showSystemNotification(urgent ? '🚨 늘봄 긴급' : '⚠️ 늘봄 확인 필요', message, urgent ? 'urgent' : 'warn')
+  const title = `${urgent ? '🚨 늘봄 긴급' : '⚠️ 늘봄 확인 필요'}${elderName ? ` · ${elderName} 님` : ''}`
+  showSystemNotification(title, message, urgent ? 'urgent' : 'warn')
 }
 
 /** 보호자 화면이 직접 알린 경고 키 (새로고침해도 같은 경고를 반복하지 않도록 저장) */
@@ -90,6 +93,13 @@ const saveHidden = (code: string, ids: string[]) => {
   }
 }
 
+/** 어르신 이름 버튼마다 세는 확인할 일 */
+interface TabCount {
+  name: string
+  count: number
+  urgent: boolean
+}
+
 const HISTORY_DAYS = 7
 /** 보호자 화면이 직접 경고하기 전에 어르신 기기의 알림이 도착하기를 기다리는 시간 */
 const GUARDIAN_NOTIFY_DELAY_MS = 5000
@@ -110,6 +120,14 @@ export function GuardianPage() {
   const [code, setCode] = useState(init.selected)
   const [adding, setAdding] = useState(false)
   const [fullNote, setFullNote] = useState(init.full)
+  const [counts, setCounts] = useState<Record<string, TabCount>>({})
+  const onCount = useCallback((c: string, info: TabCount) => {
+    setCounts((prev) =>
+      prev[c]?.count === info.count && prev[c]?.name === info.name && prev[c]?.urgent === info.urgent
+        ? prev
+        : { ...prev, [c]: info },
+    )
+  }, [])
 
   const select = (c: string) => {
     saveSelected(c)
@@ -170,8 +188,29 @@ export function GuardianPage() {
                 active={adding ? '' : code}
                 onSelect={select}
                 onAdd={codes.length < MAX_ELDERS ? () => setAdding(true) : undefined}
+                onCount={onCount}
               />
             )}
+            {/* 다른 어르신에게 확인할 일이 있으면 바로 알 수 있게 한 줄로 보여 줍니다 */}
+            {codes
+              .filter((c) => c !== code && counts[c]?.count)
+              .map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => select(c)}
+                  className={`flex min-h-12 w-full items-center justify-between gap-2 rounded-2xl px-4 text-left text-base font-bold ring-2 ${
+                    counts[c].urgent
+                      ? 'bg-rose-50 text-rose-800 ring-rose-200'
+                      : 'bg-amber-50 text-amber-900 ring-amber-200'
+                  }`}
+                >
+                  <span>
+                    {counts[c].urgent ? '🚨' : '⚠️'} {counts[c].name} 님 확인할 일 {counts[c].count}개
+                  </span>
+                  <span className="shrink-0 whitespace-nowrap text-brand-700">보기 ›</span>
+                </button>
+              ))}
             {code && !adding ? (
               <GuardianDashboard key={code} code={code} onRemove={() => remove(code)} />
             ) : (
@@ -193,16 +232,18 @@ function ElderTabs({
   active,
   onSelect,
   onAdd,
+  onCount,
 }: {
   codes: string[]
   active: string
   onSelect: (code: string) => void
   onAdd?: () => void
+  onCount: (code: string, info: TabCount) => void
 }) {
   return (
     <nav aria-label="어르신 목록" className="flex flex-wrap gap-2">
       {codes.map((c) => (
-        <ElderTab key={c} code={c} active={c === active} onSelect={() => onSelect(c)} />
+        <ElderTab key={c} code={c} active={c === active} onSelect={() => onSelect(c)} onCount={onCount} />
       ))}
       {onAdd && (
         <button
@@ -217,13 +258,27 @@ function ElderTabs({
   )
 }
 
-function ElderTab({ code, active, onSelect }: { code: string; active: boolean; onSelect: () => void }) {
+function ElderTab({
+  code,
+  active,
+  onSelect,
+  onCount,
+}: {
+  code: string
+  active: boolean
+  onSelect: () => void
+  onCount: (code: string, info: TabCount) => void
+}) {
   const now = useNow(60_000)
   const dateKey = todayKey(now)
   const [family, setFamily] = useState<FamilyInfo | null | undefined>(undefined)
   const [days, setDays] = useState<Record<string, DayRecord>>({})
   const [alerts, setAlerts] = useState<AlertLog[]>([])
   const seen = useRef<Set<string> | null>(null)
+  const nameRef = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    nameRef.current = family?.elderName
+  }, [family])
   const activeRef = useRef(active)
   useEffect(() => {
     activeRef.current = active
@@ -241,7 +296,7 @@ function ElderTab({ code, active, onSelect }: { code: string; active: boolean; o
           if (seen.current && !activeRef.current) {
             for (const a of list) {
               if (!seen.current.has(a.id))
-                notify(a.reason, a.kind === 'sos' ? 'danger' : 'warn', `alert-${a.id}`)
+                notify(a.reason, a.kind === 'sos' ? 'danger' : 'warn', nameRef.current)
             }
           }
           seen.current = new Set(list.map((a) => a.id))
@@ -259,10 +314,16 @@ function ElderTab({ code, active, onSelect }: { code: string; active: boolean; o
       void registerPushDevice(code, 'guardian')
   }, [code])
 
-  const count = family
-    ? findCareIssues(family, days[dateKey] ?? { takenMeds: {} }, alerts, now, dateKey).length
-    : 0
+  const todos = family
+    ? buildGuardianTodos(family, days[dateKey] ?? { takenMeds: {} }, alerts, now, dateKey)
+    : []
+  const count = todos.length
+  const urgent = todos.some((t) => t.level === 'urgent')
   const name = family?.elderName ?? (family === null ? code : '불러오는 중')
+  // 위쪽 '다른 어르신 확인할 일' 띠에 쓰도록 알려 줍니다.
+  useEffect(() => {
+    onCount(code, { name, count, urgent })
+  }, [code, name, count, urgent, onCount])
   return (
     <button
       type="button"
@@ -335,8 +396,11 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
   const dateKey = todayKey(now)
   const sinceKey = todayKey(new Date(now.getTime() - (HISTORY_DAYS - 1) * 86_400_000))
   const [ackError, setAckError] = useState<{ id: string; message: string } | null>(null)
-  const noticeCount = useGuardianNoticeStore((s) => s.notices.length)
   const [family, setFamily] = useState<FamilyInfo | null | undefined>(undefined)
+  const nameRef = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    nameRef.current = family?.elderName
+  }, [family])
   const [days, setDays] = useState<Record<string, DayRecord>>({})
   const [alerts, setAlerts] = useState<AlertLog[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -364,7 +428,7 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
           if (seen.current) {
             for (const a of list) {
               if (!seen.current.has(a.id))
-                notify(a.reason, a.kind === 'sos' ? 'danger' : 'warn', `alert-${a.id}`)
+                notify(a.reason, a.kind === 'sos' ? 'danger' : 'warn', nameRef.current)
             }
           }
           seen.current = new Set(list.map((a) => a.id))
@@ -396,13 +460,7 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
       const reported = new Set(alertsRef.current.map((a) => a.key))
       const fresh = issues.filter((i) => !done.includes(i.key) && !reported.has(i.key))
       if (!fresh.length) return
-      fresh.forEach((i) =>
-        notify(
-          `${family.elderName} 님: ${i.text}`,
-          i.level === 'danger' ? 'danger' : 'warn',
-          `issue-${i.key}`,
-        ),
-      )
+      fresh.forEach((i) => notify(i.text, i.level === 'danger' ? 'danger' : 'warn', family.elderName))
       saveNotified(code, [...done, ...fresh.map((i) => i.key)])
     }, GUARDIAN_NOTIFY_DELAY_MS)
     return () => clearTimeout(timer)
@@ -414,9 +472,6 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
     setAckError(null)
     try {
       await ackAlert(code, a.id, family.guardianName.trim() || '보호자')
-      // 이 알림에 대한 화면 알림도 함께 확인 처리합니다.
-      const { notices, dismissNotice } = useGuardianNoticeStore.getState()
-      notices.filter((n) => n.key === `alert-${a.id}`).forEach((n) => dismissNotice(n.id))
     } catch (e) {
       setAckError({ id: a.id, message: (e as Error).message })
     } finally {
@@ -424,11 +479,12 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
     }
   }
 
-  // 확인하지 않은 알림 개수를 브라우저 탭 제목에 보여 줍니다. 예: (2) 늘봄 보호자
+  // 확인할 일 개수를 브라우저 탭 제목에 보여 줍니다. 예: (2) 늘봄 보호자 화면
+  const todoCount = family ? buildGuardianTodos(family, today, alerts, now, dateKey).length : 0
   useEffect(() => {
     const base = '늘봄 보호자 화면'
-    document.title = noticeCount ? `(${noticeCount}) ${base}` : base
-  }, [noticeCount])
+    document.title = todoCount ? `(${todoCount}) ${base}` : base
+  }, [todoCount])
 
   if (error)
     return (
@@ -470,7 +526,6 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
     return takenAt ? `${fmtTime(takenAt)}에 드셨어요` : null
   }
   const nowMin = now.getHours() * 60 + now.getMinutes()
-  const hasDanger = issues.some((i) => i.level === 'danger')
   // 휴대폰 알림을 아직 켜지 않았으면 맨 위에서 먼저 켜도록 안내합니다. (가장 먼저 해야 할 일)
   const needPush = !pushOn && (typeof Notification === 'undefined' || Notification.permission !== 'granted')
   const [dh, dm] = family.wakeUpDeadline.split(':').map(Number)
@@ -481,9 +536,19 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
     todayKey(new Date(now.getTime() - i * 86_400_000)),
   )
 
+  const todos = buildGuardianTodos(family, today, alerts, now, dateKey)
+  const pastAlerts = alerts.filter((a) => a.ackAt && (showHidden || !hidden.includes(a.id)))
+  const nextMed = family.medications
+    .filter(
+      (m) => !today.takenMeds[m.id] && getMedStatus(m, undefined, now, family.medGraceMinutes) !== 'missed',
+    )
+    .sort((a, b) => a.time.localeCompare(b.time))[0]
+  const missedMeds = family.medications.filter(
+    (m) => getMedStatus(m, today.takenMeds[m.id], now, family.medGraceMinutes) === 'missed',
+  ).length
+
   return (
-    <div className="animate-fade-up space-y-5">
-      <NoticeStack useStore={useGuardianNoticeStore} dismissLabel="알림 닫기" dismissAllLabel="모두 닫기" />
+    <div className="animate-fade-up space-y-4">
       {needPush && (
         <section
           className="rounded-3xl bg-white p-5 shadow-glass ring-2 ring-brand-300"
@@ -498,273 +563,242 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
           <PushPermission role="guardian" familyCode={code} onGranted={() => setPushOn(true)} />
         </section>
       )}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-base font-bold text-brand-600">
-            {now.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' })}
-          </p>
-          <h1 className="text-3xl font-black">{family.elderName} 님의 오늘</h1>
-          <p className="mt-1 flex items-center gap-1.5 text-base text-ink-soft">
-            <Smartphone className="size-4" aria-hidden />
-            어르신 앱 마지막 사용:{' '}
+
+      {/* 누구의 오늘인지 + 전화 */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl leading-tight font-black">{family.elderName} 님의 오늘</h1>
+          <p className="mt-0.5 flex items-center gap-1.5 text-sm text-ink-soft">
+            <Smartphone className="size-4 shrink-0" aria-hidden />앱 마지막 사용{' '}
             <b className="text-ink">{family.lastSeenAt ? fromNow(family.lastSeenAt, now) : '기록 없음'}</b>
           </p>
         </div>
         {family.elderPhone.trim() ? (
           <a
             href={`tel:${family.elderPhone.trim()}`}
-            className="flex min-h-12 items-center gap-2 rounded-2xl bg-linear-to-br from-brand-400 to-brand-600 px-5 text-base font-bold text-white shadow-glass"
+            className="flex min-h-12 shrink-0 items-center gap-2 rounded-2xl bg-linear-to-br from-brand-400 to-brand-600 px-4 text-base font-bold whitespace-nowrap text-white shadow-glass"
           >
-            <Phone className="size-5" aria-hidden /> 어르신께 전화
+            <Phone className="size-5" aria-hidden /> 전화
           </a>
         ) : (
-          <p className="rounded-2xl bg-white/70 px-4 py-3 text-sm text-ink-soft ring-1 ring-brand-100">
-            어르신 번호가 아직 없어요
+          <p className="shrink-0 text-right text-sm text-ink-soft">
+            어르신 번호 없음
             <br />
-            (어르신 앱 → 내 정보에서 넣어요)
+            (어르신 앱 → 내 정보)
           </p>
         )}
       </div>
 
-      {/* 지금 상태 요약 */}
-      {issues.length === 0 ? (
+      {/* 확인할 일: 알림·문제는 모두 이 한곳에서만 보여 줍니다 */}
+      {todos.length === 0 ? (
         <section
-          className="flex items-center gap-3 rounded-3xl bg-emerald-50 p-5 ring-2 ring-emerald-200"
-          aria-label="지금 상태"
+          className="flex items-center gap-3 rounded-3xl bg-emerald-50 p-4 ring-2 ring-emerald-200"
+          aria-label="확인할 일"
         >
           <ShieldCheck className="size-8 shrink-0 text-emerald-600" aria-hidden />
-          <p className="text-lg font-extrabold text-emerald-800">지금은 확인이 필요한 일이 없어요.</p>
+          <p className="text-lg font-extrabold text-emerald-800">지금은 확인할 일이 없어요</p>
         </section>
       ) : (
-        <section
-          className={`rounded-3xl p-5 ring-2 ${hasDanger ? 'bg-rose-50 ring-rose-200' : 'bg-amber-50 ring-amber-200'}`}
-          aria-label="확인이 필요해요"
-        >
-          <p
-            className={`mb-2 flex items-center gap-2 text-xl font-black ${hasDanger ? 'text-rose-700' : 'text-amber-800'}`}
-          >
-            <ShieldAlert className="size-7" aria-hidden /> 확인이 필요해요
+        <section className="glass rounded-3xl p-4" aria-label="확인할 일">
+          <p className="mb-3 text-lg font-black">
+            확인할 일 <span className="text-rose-600">{todos.length}개</span>
           </p>
-          <ul className="space-y-1.5">
-            {issues.map((i) => (
-              <li key={i.key} className="flex gap-2 text-base font-semibold">
-                <span
-                  className={`mt-0.5 shrink-0 self-start whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-bold ${
-                    i.level === 'danger' ? 'bg-rose-600 text-white' : 'bg-amber-100 text-amber-800'
-                  }`}
-                >
-                  {i.level === 'danger' ? '긴급' : '확인 필요'}
-                </span>
-                {i.text}
-              </li>
+          <ul className="space-y-2">
+            {todos.map((t) => (
+              <AlertRow
+                key={t.key}
+                level={t.level}
+                text={t.text}
+                at={t.at}
+                status={
+                  t.alert && resolvedText(t.alert)
+                    ? { kind: 'resolved', text: `해결됨 · ${resolvedText(t.alert)}` }
+                    : {
+                        kind: 'pending',
+                        text: t.alert ? '아직 확인 전' : '어르신께 전화로 안부를 확인해 보세요',
+                      }
+                }
+                action={
+                  t.alert && (
+                    <>
+                      <BigButton
+                        size="md"
+                        variant={t.level === 'urgent' ? 'danger' : 'primary'}
+                        icon={<Check />}
+                        fullWidth
+                        loading={acking === t.alert.id}
+                        disabled={acking !== null}
+                        onClick={() => t.alert && ack(t.alert)}
+                      >
+                        확인했어요
+                      </BigButton>
+                      {ackError?.id === t.alert.id && (
+                        <StatusNote tone="warn" className="mt-2" onClose={() => setAckError(null)}>
+                          확인 표시를 저장하지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.
+                        </StatusNote>
+                      )}
+                    </>
+                  )
+                }
+              />
             ))}
           </ul>
-          <p className="mt-3 text-sm text-ink-soft">어르신께 전화로 안부를 확인해 보세요.</p>
+          {hasAssignedWorker(code) && (
+            <p className="mt-2 text-sm text-ink-soft">30분 넘게 확인하지 않으면 담당 복지사에게도 알려요.</p>
+          )}
         </section>
       )}
 
-      {/* 기상 확인 */}
-      <section
-        className={`flex items-center gap-4 rounded-3xl p-5 ring-2 ${
-          today.wakeUpAt
-            ? 'bg-emerald-50 ring-emerald-200'
-            : wakeOverdue
-              ? 'bg-rose-50 ring-rose-200'
-              : 'bg-white/80 ring-brand-100'
-        }`}
-        aria-label="기상 확인"
-      >
-        <div
-          className={`grid size-14 shrink-0 place-items-center rounded-full text-white ${
-            today.wakeUpAt ? 'bg-emerald-500' : wakeOverdue ? 'bg-rose-500' : 'bg-amber-400'
+      {/* 오늘 한눈에: 기상 · 약 */}
+      <div className="grid grid-cols-2 gap-3">
+        <section
+          aria-label="기상"
+          className={`rounded-3xl p-4 ring-2 ${
+            today.wakeUpAt
+              ? 'bg-emerald-50 ring-emerald-200'
+              : wakeOverdue
+                ? 'bg-amber-50 ring-amber-200'
+                : 'bg-white/80 ring-brand-100'
           }`}
         >
-          {today.wakeUpAt ? (
-            <Check className="size-8" strokeWidth={3} aria-hidden />
-          ) : (
-            <Sun className="size-8" aria-hidden />
-          )}
-        </div>
-        <div>
-          <p className="text-xl font-extrabold">
-            {today.wakeUpAt
-              ? '오늘 기상 확인 완료'
-              : wakeOverdue
-                ? '기상 확인이 아직 없어요'
-                : '기상 확인 기다리는 중'}
+          <p className="flex items-center gap-1.5 text-base font-bold text-ink-soft">
+            <Sun className="size-5 text-amber-500" aria-hidden /> 기상
           </p>
-          <p className="flex items-center gap-1.5 text-base text-ink-soft">
-            <AlarmClock className="size-4" aria-hidden />
-            {today.wakeUpAt
-              ? `${fmtTime(today.wakeUpAt)}에 '일어났어요'를 누르셨어요`
-              : `확인 마감 ${family.wakeUpDeadline}`}
+          <p className="mt-1 text-xl font-black">
+            {today.wakeUpAt ? (
+              <span className="flex items-center gap-1 text-emerald-700">
+                <Check className="size-6" strokeWidth={3} aria-hidden />
+                {fmtTime(today.wakeUpAt)}
+              </span>
+            ) : wakeOverdue ? (
+              <span className="text-amber-800">아직 없음</span>
+            ) : (
+              '기다리는 중'
+            )}
           </p>
-        </div>
-      </section>
-
-      {/* 복약 */}
-      <InfoCard title="오늘 복약" icon={<Pill />} subtitle={`${takenCount} / ${total} 복용`}>
-        <div
-          className="mb-4 h-3 overflow-hidden rounded-full bg-brand-100"
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={total}
-          aria-valuenow={takenCount}
-          aria-label="오늘 복약 진행률"
+          <p className="text-sm text-ink-soft">
+            {today.wakeUpAt ? '일어나셨어요' : `${family.wakeUpDeadline}까지`}
+          </p>
+        </section>
+        <section
+          aria-label="오늘 약"
+          className={`rounded-3xl p-4 ring-2 ${
+            total > 0 && takenCount === total
+              ? 'bg-emerald-50 ring-emerald-200'
+              : missedMeds > 0
+                ? 'bg-amber-50 ring-amber-200'
+                : 'bg-white/80 ring-brand-100'
+          }`}
         >
-          <div
-            className="h-full rounded-full bg-linear-to-r from-brand-400 to-brand-600 transition-all"
-            style={{ width: `${total ? (takenCount / total) * 100 : 0}%` }}
-          />
-        </div>
+          <p className="flex items-center gap-1.5 text-base font-bold text-ink-soft">
+            <Pill className="size-5 text-brand-500" aria-hidden /> 약
+          </p>
+          <p className="mt-1 text-xl font-black">
+            {takenCount} / {total}
+          </p>
+          <p className="text-sm text-ink-soft">
+            {total === 0
+              ? '등록된 약 없음'
+              : takenCount === total
+                ? '모두 드셨어요'
+                : missedMeds > 0
+                  ? `놓친 약 ${missedMeds}개`
+                  : nextMed
+                    ? `다음 ${nextMed.slot} ${nextMed.time}`
+                    : ''}
+          </p>
+        </section>
+      </div>
+
+      {/* 자주 안 보는 것은 접어 둡니다 */}
+      <Fold title="오늘 약 목록" icon={<Pill />} hint={`${takenCount}/${total}`}>
         <ul className="space-y-2">
           {family.medications.map((m) => {
             const takenAt = today.takenMeds[m.id]
-            const status = getMedStatus(m, takenAt, now, family.medGraceMinutes)
-            const s = STATUS_STYLE[status]
+            const s = STATUS_STYLE[getMedStatus(m, takenAt, now, family.medGraceMinutes)]
             return (
               <li
                 key={m.id}
-                className="flex items-center gap-3 rounded-2xl bg-white/80 p-4 ring-1 ring-brand-100"
+                className="flex items-center justify-between gap-3 rounded-2xl bg-white/80 p-3 ring-1 ring-brand-100"
               >
-                <span className="min-w-0 flex-1">
-                  <span className="flex flex-wrap items-center gap-2">
-                    <span className="text-lg font-extrabold">{m.slot}</span>
-                    <span className={`rounded-full px-2.5 py-0.5 text-sm font-bold ${s.cls}`}>{s.label}</span>
+                <span className="min-w-0">
+                  <span className="block text-base font-bold">
+                    {m.slot} {m.time}
                   </span>
-                  <span className="block text-base">{m.name}</span>
-                  <span className="text-sm text-ink-soft">
-                    {m.time}
+                  <span className="block text-sm text-ink-soft">
+                    {m.name}
                     {takenAt ? ` · ${fmtTime(takenAt)} 복용` : ''}
                   </span>
+                </span>
+                <span
+                  className={`shrink-0 rounded-full px-2.5 py-0.5 text-sm font-bold whitespace-nowrap ${s.cls}`}
+                >
+                  {s.label}
                 </span>
               </li>
             )
           })}
         </ul>
-      </InfoCard>
+      </Fold>
 
-      {/* 알림 */}
-      <InfoCard title="받은 알림" icon={<BellRing />}>
-        <div className="mb-4">
-          {/* 휴대폰 알림 켜기 버튼은 맨 위 안내 상자에만 둡니다. (같은 버튼이 두 번 보이지 않게) */}
-          {!needPush && <PushPermission role="guardian" familyCode={code} />}
-          <MorningToggle code={code} elderName={family.elderName} />
-        </div>
-        {visibleAlerts.length === 0 ? (
+      <Fold
+        title="지난 알림"
+        icon={<BellRing />}
+        hint={pastAlerts.length ? `${pastAlerts.length}개` : '없음'}
+      >
+        {pastAlerts.length === 0 ? (
           <p className="rounded-2xl bg-white/70 p-4 text-center text-base text-ink-soft">
-            {alerts.length === 0 ? '아직 받은 알림이 없어요.' : '받은 알림을 모두 지웠어요.'}
+            {hiddenCount > 0 ? '지난 알림을 모두 지웠어요.' : '확인한 알림이 여기에 모여요.'}
           </p>
         ) : (
-          <>
-            {ackedVisible.length > 1 && (
-              <div className="mb-2 flex justify-end">
-                <BigButton
-                  size="md"
-                  variant="ghost"
-                  icon={<Trash2 />}
-                  onClick={() => hide(ackedVisible.map((a) => a.id))}
-                >
-                  확인한 알림 모두 지우기
-                </BigButton>
-              </div>
-            )}
-            <ul className="max-h-[32rem] space-y-2 overflow-y-auto">
-              {visibleAlerts.map((a) => (
-                <li
-                  key={a.id}
-                  className={`rounded-2xl p-4 ring-1 ${
-                    a.kind === 'sos' ? 'bg-rose-50/90 ring-rose-200' : 'bg-amber-50/90 ring-amber-100'
-                  }`}
-                >
-                  <p className="flex items-start gap-2 text-base font-semibold">
-                    {a.kind === 'sos' && (
-                      <Siren className="mt-0.5 size-5 shrink-0 text-rose-600" aria-hidden />
-                    )}
-                    {a.reason}
-                  </p>
-                  {resolvedText(a) && (
-                    <p className="mt-1 flex items-center gap-1.5 text-sm font-bold text-emerald-700">
-                      <Check className="size-4 shrink-0" strokeWidth={3} aria-hidden /> 해결됨 ·{' '}
-                      {resolvedText(a)}
-                    </p>
-                  )}
-                  <p className="mt-1 text-sm text-ink-soft">
-                    {new Date(a.at).toLocaleString('ko-KR', {
-                      month: 'numeric',
-                      day: 'numeric',
-                      hour: 'numeric',
-                      minute: '2-digit',
-                    })}
-                    {' · '}
-                    {a.channels
-                      .filter((c) => READY_CHANNELS.includes(c))
-                      .map((c) => CHANNEL_LABEL[c])
-                      .join(', ') || '보호자 화면'}
-                  </p>
-                  {a.ackAt ? (
-                    <div className="mt-2 flex items-center justify-between gap-2">
-                      <p className="flex items-center gap-1.5 text-sm font-bold text-emerald-700">
-                        <CheckCheck className="size-4" aria-hidden /> {fmtTime(a.ackAt)}에 확인했어요
-                      </p>
-                      {!hidden.includes(a.id) && (
-                        <button
-                          type="button"
-                          onClick={() => hide([a.id])}
-                          aria-label={`이 알림 지우기: ${a.reason}`}
-                          className="flex min-h-11 shrink-0 items-center gap-1 rounded-xl px-3 text-sm font-bold whitespace-nowrap text-ink-soft hover:bg-white"
-                        >
-                          <Trash2 className="size-4" aria-hidden /> 지우기
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <BigButton
-                      size="md"
-                      variant={a.kind === 'sos' ? 'danger' : 'primary'}
-                      icon={<Check />}
-                      className="mt-3"
-                      fullWidth
-                      loading={acking === a.id}
-                      disabled={acking !== null}
-                      onClick={() => ack(a)}
+          <ul className="max-h-[28rem] space-y-2 overflow-y-auto">
+            {pastAlerts.map((a) => (
+              <AlertRow
+                key={a.id}
+                done
+                level={alertLevelOf(a)}
+                text={a.reason}
+                at={a.at}
+                status={{
+                  kind: 'acked',
+                  text: `${fmtTime(a.ackAt!)} ${a.ackBy ?? '보호자'} 확인${resolvedText(a) ? ` · ${resolvedText(a)}` : ''}`,
+                }}
+                action={
+                  !hidden.includes(a.id) && (
+                    <button
+                      type="button"
+                      onClick={() => hide([a.id])}
+                      aria-label={`이 알림 지우기: ${a.reason}`}
+                      className="flex min-h-11 items-center gap-1 rounded-xl px-3 text-sm font-bold text-ink-soft hover:bg-white"
                     >
-                      확인했어요
-                    </BigButton>
-                  )}
-                  {ackError?.id === a.id && (
-                    <StatusNote tone="warn" className="mt-2" onClose={() => setAckError(null)}>
-                      확인 표시를 저장하지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요. (
-                      {ackError.message})
-                    </StatusNote>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </>
+                      <Trash2 className="size-4" aria-hidden /> 지우기
+                    </button>
+                  )
+                }
+              />
+            ))}
+          </ul>
         )}
-        {hiddenCount > 0 && (
-          <button
-            type="button"
-            onClick={() => setShowHidden((v) => !v)}
-            className="mt-2 min-h-11 w-full rounded-xl text-sm font-bold text-brand-700 hover:bg-brand-50"
-          >
-            {showHidden ? '지운 알림 다시 숨기기' : `지운 알림 ${hiddenCount}개 다시 보기`}
-          </button>
-        )}
-        <p className="mt-3 text-sm text-ink-soft">
-          '확인했어요'를 누른 알림은 '지우기'로 지울 수 있어요.
-          {hasAssignedWorker(code) && (
-            <>
-              <br />
-              30분 넘게 확인하지 않으면 담당 복지사에게도 알려요.
-            </>
+        <div className="mt-2 flex flex-wrap justify-end gap-2">
+          {ackedVisible.length > 1 && (
+            <BigButton
+              size="md"
+              variant="ghost"
+              icon={<Trash2 />}
+              onClick={() => hide(ackedVisible.map((a) => a.id))}
+            >
+              모두 지우기
+            </BigButton>
           )}
-        </p>
-      </InfoCard>
+          {hiddenCount > 0 && (
+            <BigButton size="md" variant="ghost" onClick={() => setShowHidden((v) => !v)}>
+              {showHidden ? '지운 알림 숨기기' : `지운 알림 ${hiddenCount}개 보기`}
+            </BigButton>
+          )}
+        </div>
+      </Fold>
 
-      {/* 최근 7일 */}
-      <InfoCard title="최근 7일" icon={<CalendarDays />} subtitle="기상 확인 시각과 복약 기록">
+      <Fold title="최근 7일 기록" icon={<CalendarDays />}>
         <table className="w-full text-left text-base">
           <thead>
             <tr className="text-sm text-ink-soft">
@@ -802,7 +836,7 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
                     ) : !d && k !== dateKey ? (
                       <span className="text-ink-soft">기록 없음</span>
                     ) : (
-                      <span className="font-bold text-rose-600">확인 없음</span>
+                      <span className="font-bold text-amber-700">확인 없음</span>
                     )}
                   </td>
                   <td className="py-2.5 text-right">
@@ -820,7 +854,12 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
           </tbody>
         </table>
         <p className="mt-2 text-sm text-ink-soft">복약 개수는 그날 등록돼 있던 약 기준이에요.</p>
-      </InfoCard>
+      </Fold>
+
+      <Fold title="알림 설정" icon={<Settings2 />} hint={needPush ? '꺼짐' : '켜짐'}>
+        {!needPush && <PushPermission role="guardian" familyCode={code} />}
+        <MorningToggle code={code} elderName={family.elderName} />
+      </Fold>
 
       <p className="text-center text-sm text-ink-soft">
         가족 코드 <b className="font-mono">{code}</b> ·{' '}
