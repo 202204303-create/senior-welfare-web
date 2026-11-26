@@ -384,7 +384,7 @@ export function FamilyCodeCard() {
     <div className="mt-3 rounded-2xl bg-brand-50/90 p-4 ring-1 ring-brand-100">
       <p className="text-base font-bold">보호자 연결</p>
       <p className="mb-3 text-sm text-ink-soft">링크를 보내 드리면 보호자는 누르기만 해도 바로 연결돼요.</p>
-      <BigButton fullWidth size="lg" icon={<Share2 />} onClick={share} className="px-3 whitespace-nowrap">
+      <BigButton fullWidth size="lg" icon={<Share2 />} onClick={share} className="px-3 text-balance">
         보호자에게 링크 보내기
       </BigButton>
       {shareNote && (
@@ -454,7 +454,13 @@ interface DoneItem {
  * - 약 드실 시각이 지났는데 체크하지 않은 약: '먹었어요' 버튼, 놓친 약은 보호자께 알렸다는 안내
  * - 배너에서 방금 기록한 일: 초록색 완료 줄 (닫기 전까지 남음)
  */
-export function CareReminderBanner({ showWake = true }: { showWake?: boolean }) {
+export function CareReminderBanner({
+  showWake = true,
+  compact = false,
+}: {
+  showWake?: boolean
+  compact?: boolean
+}) {
   const now = useNow(30_000)
   const { medications, records, toggleMed, checkWakeUp, wakeUpDeadline, medGraceMinutes, alerts } =
     useCareStore()
@@ -474,6 +480,22 @@ export function CareReminderBanner({ showWake = true }: { showWake?: boolean }) 
       !later.includes(m.id) &&
       getMedStatus(m, undefined, now, medGraceMinutes) !== 'later',
   )
+  // 홈이 아닌 화면(약·알림·내 정보)에서는 큰 상자 대신 한 줄 띠만 보여 줍니다.
+  // (큰 글씨에서 상자가 화면을 다 덮어 그 화면의 내용이 안 보이던 문제)
+  if (compact) {
+    const count = (wakeDue ? 1 : 0) + pending.length
+    if (!count) return null
+    return (
+      <Link
+        to="/"
+        className="mb-4 flex min-h-12 items-center gap-2 rounded-2xl bg-amber-50 px-4 py-2 text-base font-bold text-amber-900 ring-2 ring-amber-200"
+      >
+        <BellRing className="size-5 shrink-0" aria-hidden />
+        <span className="min-w-0 flex-1">오늘 확인할 일 {count}개</span>
+        <span className="shrink-0 whitespace-nowrap text-brand-700">홈에서 하기 →</span>
+      </Link>
+    )
+  }
   if (!wakeDue && pending.length === 0 && done.length === 0) return null
 
   const addDone = (key: string, text: string) =>

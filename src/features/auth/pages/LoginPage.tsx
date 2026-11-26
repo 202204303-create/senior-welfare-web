@@ -51,7 +51,7 @@ export function LoginPage() {
     signIn(account, from)
   }
 
-  // 로그인 없이 둘러보기: 사용자(어르신) 화면을 바로 엽니다.
+  // 처음 시작하기(가입 없이): 사용자(어르신) 화면을 바로 엽니다.
   const guest = () => {
     setPending('guest')
     setTimeout(() => {
@@ -149,7 +149,7 @@ export function LoginPage() {
                 disabled={pending !== null}
                 loading={pending === 'guest'}
               >
-                로그인 없이 둘러보기
+                처음 시작하기 (가입 없이)
               </BigButton>
               <Link
                 to="/guardian"
