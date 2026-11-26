@@ -7,7 +7,7 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react'
-import { AlertAckLine, FamilyCodeCard } from '@/features/care/components/CareWidgets'
+import { FamilyCodeCard } from '@/features/care/components/CareWidgets'
 import { PushPermission } from '@/features/care/components/PushPermission'
 import { CHANNEL_LABEL, READY_CHANNELS } from '@/features/care/hooks/useCareWatcher'
 import { useCareStore, type AlertChannel } from '@/features/care/store/useCareStore'
@@ -173,7 +173,6 @@ export function AlertsPage() {
                         .join(', ') || '보호자 화면'}{' '}
                       → {a.recipients.join(', ')}
                     </p>
-                    <AlertAckLine alert={a} />
                   </li>
                 ))}
               </ul>

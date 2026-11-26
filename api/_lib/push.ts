@@ -39,10 +39,17 @@ export async function pushToFamily(
     return 0
   }
   const tokens = snap.docs.map((d) => d.get('token') as string)
+  // 보호자는 어르신을 여러 명(최대 4명), 복지사는 수십 명 돌볼 수 있으므로
+  // 보호자·복지사에게 가는 알림은 제목에 어르신 이름을 붙여 어르신별로 구분합니다.
+  let title = msg.title
+  if (role !== 'elder') {
+    const name = (await db.collection('families').doc(code).get()).get('elderName')
+    if (typeof name === 'string' && name) title = `${msg.title} · ${name} 님`
+  }
   const res = await messaging.sendEachForMulticast({
     tokens,
     // 표시는 서비스 워커(public/push-sw.js)가 직접 하므로 data 로만 보냅니다.
-    data: { title: msg.title, body: msg.body, url: msg.url, tag: msg.tag },
+    data: { title, body: msg.body, url: msg.url, tag: msg.tag },
     webpush: { headers: { Urgency: 'high', TTL: String(24 * 60 * 60) } },
   })
   // 진단용 기록: 몇 대에 보냈고 실패 이유가 무엇인지 (기기 토큰은 남기지 않습니다)

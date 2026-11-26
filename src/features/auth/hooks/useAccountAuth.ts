@@ -8,6 +8,7 @@ import {
 } from '@/features/auth/lib/demoAccounts'
 import { fetchAccountProfile } from '@/features/auth/api/profile'
 import { emailOf } from '@/features/auth/lib/authMode'
+import { clearGuardianCodes } from '@/features/care/lib/guardianCodes'
 import { useCareStore } from '@/features/care/store/useCareStore'
 import { signInWithEmail, signOutFirebase } from '@/shared/api/firebase'
 
@@ -93,11 +94,7 @@ export function useAccountAuth() {
 
   const signOut = () => {
     if (useUserStore.getState().role === 'guardian') {
-      try {
-        localStorage.removeItem(GUARDIAN_CODE_KEY)
-      } catch {
-        /* 무시 */
-      }
+      clearGuardianCodes()
     }
     storeLogout()
     navigate('/login', { replace: true })
