@@ -24,8 +24,22 @@ export async function GET(request: Request) {
   if (!secret || request.headers.get('authorization') !== `Bearer ${secret}`) {
     return Response.json({ error: '권한 없음' }, { status: 401 })
   }
-  const { db, messaging } = firebaseAdmin()
-  return Response.json(await runCheck(db, messaging, new Date()))
+  try {
+    const { db, messaging } = firebaseAdmin()
+    return Response.json(await runCheck(db, messaging, new Date()))
+  } catch (e) {
+    // 원인을 GitHub 점검 기록에서 바로 볼 수 있도록 오류 내용을 돌려줍니다. (비밀값은 담기지 않음)
+    const err = e as Error
+    console.log(JSON.stringify({ check: 'failed', error: String(err?.message ?? e), stack: err?.stack }))
+    return Response.json(
+      {
+        error: '점검 실패',
+        message: String(err?.message ?? e).slice(0, 300),
+        where: err?.stack?.split('\n').slice(1, 4),
+      },
+      { status: 500 },
+    )
+  }
 }
 
 /** 실제 확인 작업 (시험에서 가짜 저장소로 부를 수 있도록 분리) */
