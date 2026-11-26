@@ -341,6 +341,7 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
   const [retry, setRetry] = useState(0)
   const [acking, setAcking] = useState<string | null>(null)
   const [hidden, setHidden] = useState<string[]>(() => readHidden(code))
+  const [pushOn, setPushOn] = useState(false)
   const [showHidden, setShowHidden] = useState(false)
   const hide = (ids: string[]) => {
     const next = [...new Set([...hidden, ...ids])]
@@ -456,7 +457,20 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
   const visibleAlerts = showHidden ? alerts : alerts.filter((a) => !a.ackAt || !hidden.includes(a.id))
   const ackedVisible = visibleAlerts.filter((a) => a.ackAt && !hidden.includes(a.id))
   const hiddenCount = alerts.filter((a) => a.ackAt && hidden.includes(a.id)).length
+  /** 알림이 나중에 해결됐는지: 기상 알림은 그날 일어나셨으면, 약 알림은 그 약을 드셨으면 */
+  const resolvedText = (a: AlertLog): string | null => {
+    const key = a.key ?? ''
+    const day = days[key.slice(0, 10)]
+    if (!day) return null
+    if (key.endsWith('-wake') && day.wakeUpAt) return `${fmtTime(day.wakeUpAt)}에 일어나셨어요`
+    const m = key.match(/^\d{4}-\d{2}-\d{2}-med-(.+)$/)
+    const takenAt = m ? day.takenMeds?.[m[1]] : undefined
+    return takenAt ? `${fmtTime(takenAt)}에 드셨어요` : null
+  }
   const nowMin = now.getHours() * 60 + now.getMinutes()
+  const hasDanger = issues.some((i) => i.level === 'danger')
+  // 휴대폰 알림을 아직 켜지 않았으면 맨 위에서 먼저 켜도록 안내합니다. (가장 먼저 해야 할 일)
+  const needPush = !pushOn && (typeof Notification === 'undefined' || Notification.permission !== 'granted')
   const [dh, dm] = family.wakeUpDeadline.split(':').map(Number)
   const wakeOverdue = !today.wakeUpAt && nowMin > dh * 60 + dm
   const takenCount = family.medications.filter((m) => today.takenMeds[m.id]).length
@@ -468,6 +482,20 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
   return (
     <div className="animate-fade-up space-y-5">
       <NoticeStack useStore={useGuardianNoticeStore} dismissLabel="알림 닫기" dismissAllLabel="모두 닫기" />
+      {needPush && (
+        <section
+          className="rounded-3xl bg-white p-5 shadow-glass ring-2 ring-brand-300"
+          aria-label="휴대폰 알림 켜기"
+        >
+          <p className="mb-1 flex items-center gap-2 text-lg font-black text-brand-800">
+            <BellRing className="size-6 shrink-0" aria-hidden /> 먼저 휴대폰 알림을 켜 주세요
+          </p>
+          <p className="mb-3 text-base text-ink-soft">
+            켜 두면 늘봄을 닫아 두거나 화면이 꺼져 있어도 긴급·확인 필요 알림이 와요.
+          </p>
+          <PushPermission role="guardian" familyCode={code} onGranted={() => setPushOn(true)} />
+        </section>
+      )}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-base font-bold text-brand-600">
@@ -498,8 +526,13 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
           <p className="text-lg font-extrabold text-emerald-800">지금은 확인이 필요한 일이 없어요.</p>
         </section>
       ) : (
-        <section className="rounded-3xl bg-rose-50 p-5 ring-2 ring-rose-200" aria-label="확인이 필요해요">
-          <p className="mb-2 flex items-center gap-2 text-xl font-black text-rose-700">
+        <section
+          className={`rounded-3xl p-5 ring-2 ${hasDanger ? 'bg-rose-50 ring-rose-200' : 'bg-amber-50 ring-amber-200'}`}
+          aria-label="확인이 필요해요"
+        >
+          <p
+            className={`mb-2 flex items-center gap-2 text-xl font-black ${hasDanger ? 'text-rose-700' : 'text-amber-800'}`}
+          >
             <ShieldAlert className="size-7" aria-hidden /> 확인이 필요해요
           </p>
           <ul className="space-y-1.5">
@@ -510,7 +543,7 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
                     i.level === 'danger' ? 'bg-rose-600 text-white' : 'bg-amber-100 text-amber-800'
                   }`}
                 >
-                  {i.level === 'danger' ? '긴급' : '주의'}
+                  {i.level === 'danger' ? '긴급' : '확인 필요'}
                 </span>
                 {i.text}
               </li>
@@ -639,6 +672,12 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
                     )}
                     {a.reason}
                   </p>
+                  {resolvedText(a) && (
+                    <p className="mt-1 flex items-center gap-1.5 text-sm font-bold text-emerald-700">
+                      <Check className="size-4 shrink-0" strokeWidth={3} aria-hidden /> 해결됨 ·{' '}
+                      {resolvedText(a)}
+                    </p>
+                  )}
                   <p className="mt-1 text-sm text-ink-soft">
                     {new Date(a.at).toLocaleString('ko-KR', {
                       month: 'numeric',

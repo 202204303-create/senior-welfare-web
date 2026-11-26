@@ -33,7 +33,7 @@ export function Logo({ compact = false }: { compact?: boolean } = {}) {
         </svg>
       </span>
       <span className="leading-none">
-        <span className="block text-xl font-black tracking-tight text-brand-800">늘봄</span>
+        <span className="block text-xl font-black tracking-tight whitespace-nowrap text-brand-800">늘봄</span>
         <span
           className={`${compact ? 'hidden min-[420px]:block' : 'block'} text-xs font-semibold whitespace-nowrap text-brand-600/80`}
         >
@@ -74,7 +74,7 @@ export function AppLayout() {
       {/* 상단 헤더 */}
       <header className="sticky top-0 z-30 border-b border-white/70 bg-white/60 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
-          <Logo />
+          <Logo compact />
           <nav className="ml-6 hidden items-center gap-1 md:flex" aria-label="주요 메뉴">
             {NAV.map(({ to, label, Icon, ...rest }) => (
               <NavLink
@@ -97,16 +97,16 @@ export function AppLayout() {
           <div className="ml-auto flex items-center gap-2">
             <button
               onClick={cycleFont}
-              className="flex min-h-12 items-center gap-1.5 rounded-2xl bg-white/80 px-3.5 text-base font-bold text-brand-700 ring-1 ring-brand-100 hover:bg-brand-50"
+              className="flex min-h-12 shrink-0 items-center gap-1 rounded-2xl bg-white/80 px-2.5 text-base font-bold whitespace-nowrap text-brand-700 ring-1 ring-brand-100 hover:bg-brand-50"
               aria-label={`글자 크기 변경, 현재 ${SCALE_LABEL[fontScale]}`}
             >
-              <Type className="size-5" aria-hidden />
+              <Type className="size-5 shrink-0" aria-hidden />
               <span className="hidden sm:inline">글자</span> {SCALE_LABEL[fontScale]}
             </button>
             <NavLink
               to="/my"
               className={({ isActive }) =>
-                `grid size-12 place-items-center rounded-2xl ring-1 transition ${
+                `grid size-12 shrink-0 place-items-center rounded-2xl ring-1 transition ${
                   isActive
                     ? 'bg-brand-600 text-white ring-brand-600'
                     : 'bg-white/80 text-brand-700 ring-brand-100 hover:bg-brand-50'
@@ -124,7 +124,7 @@ export function AppLayout() {
         <InstallBanner />
         <NoticeStack />
         {/* 홈에는 기상 카드와 오늘의 약이 이미 있으므로 배너를 띄우지 않습니다. */}
-        {pathname !== '/' && <CareReminderBanner />}
+        {pathname !== '/' && <CareReminderBanner compact />}
         <Outlet />
       </main>
 

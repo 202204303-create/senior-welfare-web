@@ -45,7 +45,7 @@ export function AlertsPage() {
                   <span className="block text-lg font-bold">{profile.guardianName}</span>
                   <span className="text-base text-ink-soft">{profile.guardianPhone}</span>
                 </span>
-                <span className="rounded-full bg-brand-100 px-3 py-1 text-sm font-bold text-brand-700">
+                <span className="shrink-0 rounded-full bg-brand-100 px-3 py-1 text-sm font-bold whitespace-nowrap text-brand-700">
                   보호자
                 </span>
               </li>
@@ -54,7 +54,7 @@ export function AlertsPage() {
                   <span className="block text-lg font-bold">이수진 복지사</span>
                   <span className="text-base text-ink-soft">중구노인종합복지관</span>
                 </span>
-                <span className="rounded-full bg-violet-100 px-3 py-1 text-sm font-bold text-violet-700">
+                <span className="shrink-0 rounded-full bg-violet-100 px-3 py-1 text-sm font-bold whitespace-nowrap text-violet-700">
                   복지사
                 </span>
               </li>
