@@ -34,17 +34,6 @@ export function DashboardPage() {
       {/* 가장 중요한 '일어났어요'가 첫 화면에 바로 보이도록 맨 위에 둡니다. */}
       <WakeUpCard />
 
-      {/* 큰 시계는 약 시간과 바로 비교할 수 있도록 '오늘의 약' 바로 위에 둡니다. */}
-      <p
-        className="flex items-baseline justify-center gap-3 rounded-3xl bg-white/80 py-3 text-ink ring-1 ring-brand-100"
-        aria-label={`지금 시각 ${time}`}
-      >
-        <span className="text-lg font-bold text-ink-soft">지금</span>
-        <time dateTime={now.toISOString()} className="text-5xl font-black tracking-tight tabular-nums">
-          {time}
-        </time>
-      </p>
-
       <InfoCard
         title="오늘의 약"
         icon={<Pill />}
@@ -57,6 +46,16 @@ export function DashboardPage() {
           </Link>
         }
       >
+        {/* 큰 시계: 약 시간과 바로 비교할 수 있도록 '오늘의 약' 안 맨 위에 둡니다. */}
+        <p
+          className="mb-4 flex items-baseline justify-center gap-2 rounded-2xl bg-brand-50 py-2 text-ink"
+          aria-label={`지금 시각 ${time}`}
+        >
+          <span className="text-lg font-bold text-ink-soft">지금</span>
+          <time dateTime={now.toISOString()} className="text-4xl font-black tracking-tight tabular-nums">
+            {time}
+          </time>
+        </p>
         <div className="mb-4">
           <MedProgress />
         </div>
