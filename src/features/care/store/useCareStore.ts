@@ -112,6 +112,8 @@ export const useCareStore = create<CareState>()(
           medications: clearSampleMeds
             ? s.medications.filter((m) => !DEFAULT_MEDS.some((d) => d.id === m.id))
             : s.medications,
+          // 예시 이름·약으로 생긴 알림 기록도 함께 비웁니다.
+          alerts: clearSampleMeds ? [] : s.alerts,
         })),
 
       checkWakeUp: () =>

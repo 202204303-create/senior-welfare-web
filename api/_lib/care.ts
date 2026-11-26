@@ -64,7 +64,7 @@ export function normalizeFamily<T extends object>(raw: T | undefined | null): (T
   return {
     ...raw,
     elderName: typeof r.elderName === 'string' && r.elderName ? r.elderName : '어르신',
-    guardianName: typeof r.guardianName === 'string' ? r.guardianName : '보호자',
+    guardianName: typeof r.guardianName === 'string' && r.guardianName.trim() ? r.guardianName : '보호자',
     medications,
     wakeUpDeadline: wakeUpDeadline ?? '10:00',
     medGraceMinutes: Number.isFinite(grace) && grace > 0 ? grace : 60,
