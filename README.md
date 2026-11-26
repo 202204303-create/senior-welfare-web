@@ -141,18 +141,18 @@
 
 ### 3.1 이미 구현된 것
 
-| 기능                                | 위치                                                    | 내용                                                                                                                                                                                                              |
-| ----------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 기록 저장·실시간 구독               | `src/features/care/api/family.ts`                       | 어르신 기기 → Firestore, 보호자·복지사 화면이 실시간으로 읽음, 보호자 확인 응답                                                                                                                                   |
-| 알림 기기 등록                      | `src/shared/api/push.ts`, `public/push-sw.js`           | 폰의 FCM 토큰을 `pushTokens`에 저장, 서비스 워커가 알림 표시                                                                                                                                                      |
-| 긴급·미확인 알림                    | `api/notify.ts`                                         | 어르신 앱이 만든 알림을 보호자 기기로 즉시 전송, 같은 알림은 한 번만                                                                                                                                              |
-| 아침 안부 알림(선택)                | `api/notify-checkin.ts`                                 | '일어났어요'를 '아침 안부 알림 받기'를 켠 보호자 기기에만 조용히 전송(기본 꺼짐), 하루 한 번. '먹었어요'는 보내지 않음                                                                                            |
-| 앱이 모두 닫혀 있을 때 확인         | `api/check.ts` + `.github/workflows/care-check.yml`     | 미확인 → 보호자, 약 시간 → 어르신, 요약·에스컬레이션. 예약은 10분마다지만 GitHub 무료 실행이 밀려 **실제로는 약 1시간 간격** (cron-job.org 로 10분 간격 예정). 가족마다 오류를 따로 처리하고 응답에 `errors` 표시 |
-| 복지사용 요약·에스컬레이션          | `api/_lib/summary.ts`, `api/check.ts`, `api/notify*.ts` | 가족마다 `summary/current`(오늘 기상·복약, 열린 이슈 P1~P5, 최고 등급, 마지막 연락, 상태) 갱신, 보호자가 30분 넘게 확인 안 한 알림은 복지사에게 푸시, 긴급 요청은 복지사에게도 즉시 푸시                          |
-| 서버 시험                           | `api/_lib/*.test.ts`                                    | 46개 (`npm run test:api`). 시험용 저장소도 실제 Firestore 처럼 빈 값(undefined)을 거절                                                                                                                            |
-| 보안 규칙(임시)                     | `firestore.rules`                                       | 로그인(익명)한 사용자가 가족 코드 6자리를 알면 읽고 쓸 수 있음                                                                                                                                                    |
-| 역할별 보안 규칙 (**아직 게시 전**) | `firestore.roles.rules`, `firestore-tests/`             | 어르신·보호자·복지사별 읽기·쓰기 규칙, 에뮬레이터 시험 20개 (`npm run test:rules`)                                                                                                                                |
-| 계정 로그인 (**켜기 전**)           | `src/features/auth/`, `scripts/seed-accounts.mjs`       | Firebase 이메일 로그인, 역할·가족 연결(`users/{uid}`), 복지사 담당 배정(`workers/{uid}/assignments`). 환경 변수 `VITE_AUTH_MODE=firebase` 로 켬                                                                   |
+| 기능                                | 위치                                                    | 내용                                                                                                                                                                                                                                        |
+| ----------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 기록 저장·실시간 구독               | `src/features/care/api/family.ts`                       | 어르신 기기 → Firestore, 보호자·복지사 화면이 실시간으로 읽음, 보호자 확인 응답                                                                                                                                                             |
+| 알림 기기 등록                      | `src/shared/api/push.ts`, `public/push-sw.js`           | 폰의 FCM 토큰을 `pushTokens`에 저장, 서비스 워커가 알림 표시                                                                                                                                                                                |
+| 긴급·미확인 알림                    | `api/notify.ts`                                         | 어르신 앱이 만든 알림을 보호자 기기로 즉시 전송, 같은 알림은 한 번만                                                                                                                                                                        |
+| 아침 안부 알림(선택)                | `api/notify-checkin.ts`                                 | '일어났어요'를 '아침 안부 알림 받기'를 켠 보호자 기기에만 조용히 전송(기본 꺼짐), 하루 한 번. '먹었어요'는 보내지 않음                                                                                                                      |
+| 앱이 모두 닫혀 있을 때 확인         | `api/check.ts` + `.github/workflows/care-check.yml`     | 미확인 → 보호자, 약 시간 → 어르신, 요약·에스컬레이션. **cron-job.org 가 10분마다** 호출 (11/26 설정, 실패하면 메일 알림). GitHub Actions 도 예비로 남겨 둠(무료 실행이라 약 1시간 간격). 가족마다 오류를 따로 처리하고 응답에 `errors` 표시 |
+| 복지사용 요약·에스컬레이션          | `api/_lib/summary.ts`, `api/check.ts`, `api/notify*.ts` | 가족마다 `summary/current`(오늘 기상·복약, 열린 이슈 P1~P5, 최고 등급, 마지막 연락, 상태) 갱신, 보호자가 30분 넘게 확인 안 한 알림은 복지사에게 푸시, 긴급 요청은 복지사에게도 즉시 푸시                                                    |
+| 서버 시험                           | `api/_lib/*.test.ts`                                    | 46개 (`npm run test:api`). 시험용 저장소도 실제 Firestore 처럼 빈 값(undefined)을 거절                                                                                                                                                      |
+| 보안 규칙(임시)                     | `firestore.rules`                                       | 로그인(익명)한 사용자가 가족 코드 6자리를 알면 읽고 쓸 수 있음                                                                                                                                                                              |
+| 역할별 보안 규칙 (**아직 게시 전**) | `firestore.roles.rules`, `firestore-tests/`             | 어르신·보호자·복지사별 읽기·쓰기 규칙, 에뮬레이터 시험 20개 (`npm run test:rules`)                                                                                                                                                          |
+| 계정 로그인 (**켜기 전**)           | `src/features/auth/`, `scripts/seed-accounts.mjs`       | Firebase 이메일 로그인, 역할·가족 연결(`users/{uid}`), 복지사 담당 배정(`workers/{uid}/assignments`). 환경 변수 `VITE_AUTH_MODE=firebase` 로 켬                                                                                             |
 
 ### 3.2 구현해야 할 것
 
@@ -272,6 +272,7 @@ workers/{uid}/assignments/{code}         복지사 담당 배정 (이름·동·�
 | 11/26 | k367604-beep (김민준) | 보호자 '아침 안부 알림 받기' 스위치(기본 꺼짐): 켠 기기에만, 어르신마다 따로, '일어났어요'를 소리·진동 없이 조용히 알림. '먹었어요' 알림은 서버에서도 막음                                                                                                                                                                                                 | #44    |
 | 11/26 | k367604-beep (김민준) | 복지사 요약이 저장되지 않던 문제(점검 결과 summaries: 0) 수정: 처리 기록이 없는 이슈의 빈 값(undefined)을 Firestore 가 거절. 빈 값을 빼고 저장, 서버 설정으로도 무시. 시험용 저장소도 실제처럼 빈 값을 거절해 미리 잡도록 함                                                                                                                               | #45    |
 | 11/26 | k367604-beep (김민준) | README를 지금 앱에 맞게 갱신: 알림 정책 표(교수님 피드백), 어르신·보호자 현재 기능(보호자 최대 4명·지우기·아침 안부·시계·약 정렬), 구현 상태·데이터 구조 상태, 수업 일정(11/24 제출 완료), 12/1까지 남은 할 일(10분 점검·사용자 시험·규칙), 알려진 한계                                                                                                    | #46    |
+| 11/26 | k367604-beep (김민준) | 자동 점검을 cron-job.org 로 10분마다 (실패 2번이면 메일, GitHub Actions 는 예비). 테스트 실행 200 OK·errors 0 확인. README 반영                                                                                                                                                                                                                            | -      |
 
 ### 남은 할 일
 
@@ -288,7 +289,7 @@ workers/{uid}/assignments/{code}         복지사 담당 배정 (이름·동·�
 - [x] 앱이 모두 닫혀 있을 때 감지 — Vercel 서버 함수 + GitHub Actions (#19), 점검 오류 수정 (#36~#38)
 - [x] 교수님 피드백: 어르신별 알림 분리·보호자 최대 4명, 확인을 어르신께 알리지 않기, 먹었어요 알림 없앰, 약 시간순 정렬 (#39~#44)
 - [x] 복지사: 요약·에스컬레이션 (#33), 전자차트형 업무 화면 (#43), 요약 저장 오류 수정 (#45)
-- [ ] **자동 점검 10분 간격**: GitHub 무료 예약이 약 1시간 간격이라 cron-job.org 로 `/api/check` 호출 (교수님 확인 후) — 담당:
+- [x] **자동 점검 10분 간격**: cron-job.org 가 10분마다 `/api/check` 호출, 연속 2번 실패하면 메일 (11/26, 김민준)
 - [ ] **실제 사용자 시험**: 어르신 2~3분께 10분씩 써 보시게 하고 기록(혼자 누르셨나, 글자가 보이셨나, 어디서 막히셨나) — 담당:
 - [ ] 실제 휴대폰으로 오늘 바뀐 흐름 전체 확인 (보호자 어르신 2명 등록, 아침 안부 켜기, 🚨/⚠️ 알림, 복지사 화면) — 담당:
 - [ ] 아이폰 '홈 화면에 추가' 그림 안내 (어르신·보호자가 혼자 설치하기 어려움) — 담당:
@@ -330,25 +331,25 @@ workers/{uid}/assignments/{code}         복지사 담당 배정 (이름·동·�
 
 ## 6. 기술 스택과 서비스 연결
 
-| 구분          | 사용 기술                                                                                                            |
-| ------------- | -------------------------------------------------------------------------------------------------------------------- |
-| 프론트엔드    | React 19, TypeScript, Vite, React Router                                                                             |
-| 스타일        | Tailwind CSS v4, lucide-react 아이콘                                                                                 |
-| 상태·데이터   | Zustand(+persist), TanStack React Query                                                                              |
-| 서버(BaaS)    | Firebase Firestore(서울) + 익명 인증, 보안 규칙 `firestore.rules`                                                    |
-| 서버 함수     | Vercel Functions(`/api/notify`, `/api/notify-checkin`, `/api/check`) + firebase-admin, Firebase Cloud Messaging(FCM) |
-| 예약 실행     | GitHub Actions(`.github/workflows/care-check.yml`, 10분마다)                                                         |
-| PWA           | vite-plugin-pwa(매니페스트·서비스 워커·오프라인 캐시), `public/push-sw.js`(백그라운드 알림)                          |
-| 브라우저 기능 | Web Speech(음성 인식·합성), Notification(서비스 워커), Web Share                                                     |
-| 배포          | Vercel (GitHub `main` 연결, 자동 배포)                                                                               |
-| 개발 도구     | oxlint, Prettier, TypeScript 타입 검사, `tsx --test`(서버 시험)                                                      |
+| 구분          | 사용 기술                                                                                                                   |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| 프론트엔드    | React 19, TypeScript, Vite, React Router                                                                                    |
+| 스타일        | Tailwind CSS v4, lucide-react 아이콘                                                                                        |
+| 상태·데이터   | Zustand(+persist), TanStack React Query                                                                                     |
+| 서버(BaaS)    | Firebase Firestore(서울) + 익명 인증, 보안 규칙 `firestore.rules`                                                           |
+| 서버 함수     | Vercel Functions(`/api/notify`, `/api/notify-checkin`, `/api/check`) + firebase-admin, Firebase Cloud Messaging(FCM)        |
+| 예약 실행     | cron-job.org(10분마다, 헤더 `Authorization: Bearer CRON_SECRET`) + GitHub Actions(`.github/workflows/care-check.yml`, 예비) |
+| PWA           | vite-plugin-pwa(매니페스트·서비스 워커·오프라인 캐시), `public/push-sw.js`(백그라운드 알림)                                 |
+| 브라우저 기능 | Web Speech(음성 인식·합성), Notification(서비스 워커), Web Share                                                            |
+| 배포          | Vercel (GitHub `main` 연결, 자동 배포)                                                                                      |
+| 개발 도구     | oxlint, Prettier, TypeScript 타입 검사, `tsx --test`(서버 시험)                                                             |
 
 ```
 어르신 휴대폰 (PWA) ──저장──▶  Firebase Firestore  ◀──실시간 구독──  보호자 휴대폰 (/guardian) · 복지사 (/worker)
       │  익명 로그인 + 가족 코드(6자리)                                 │  "확인했어요" ──▶ (SOS만) 어르신 화면에 조용히 표시
       ▼                                                                     ▲ 휴대폰 알림(FCM, 화면이 꺼져 있어도)
  Vercel 서버 함수 /api/notify · /api/notify-checkin ───────────────────────┤
- GitHub Actions 10분마다 ──▶ /api/check (앱이 모두 닫혀 있어도 미확인 확인) ──┘  + 어르신 약 안내
+ cron-job.org 10분마다 ──▶ /api/check (앱이 모두 닫혀 있어도 미확인 확인) ──┘  + 어르신 약 안내
 
  GitHub (main) ──push/merge──▶ Vercel 자동 배포 ──▶ https://senior-welfare-web.vercel.app
 ```
@@ -358,7 +359,7 @@ workers/{uid}/assignments/{code}         복지사 담당 배정 (이름·동·�
 | GitHub → Vercel                  | ✅ 연결됨     | `main` 에 합치면 자동 배포, PR 마다 미리보기 주소                                       |
 | Firebase `neulbom-c7096`         | ✅ 연결됨     | 설정값이 `src/shared/api/firebase.ts` 에 있어 `.env` 없이 동작                          |
 | PWA 설치·오프라인                | ✅ 동작       | 아이폰은 홈 화면에 추가한 앱에서만 알림 가능                                            |
-| FCM 푸시 / 서버 함수 / 예약 실행 | ✅ 동작       | 무료(Blaze 불필요). 예약 실행은 GitHub 사정으로 약 1시간 간격 → cron-job.org 예정       |
+| FCM 푸시 / 서버 함수 / 예약 실행 | ✅ 동작       | 무료(Blaze 불필요). 예약 실행: **cron-job.org 10분마다**(주) + GitHub Actions(예비)     |
 | 계정 인증                        | ⚠️ 시연용     | 아이디·비밀번호가 앱 코드에 들어 있어 보안이 아님. Firebase 이메일 로그인으로 교체 예정 |
 | 카카오·네이버 로그인             | ➖ 사용 안 함 | 코드(`features/auth/api/oauth.ts`)는 남겨 둠                                            |
 
@@ -478,14 +479,15 @@ Firebase 를 새로 만들 때: 콘솔에서 웹 앱 추가 → Firestore 생성
 2. **서비스 계정 키 (비밀)** — 프로젝트 설정 → **서비스 계정** → 새 비공개 키 생성 → 받은 JSON 파일 **내용 전체**를 Vercel → Settings → Environment Variables 에 `FIREBASE_SERVICE_ACCOUNT` 로 등록. ⚠️ 이 파일은 Git·채팅에 올리지 않습니다.
 3. **CRON_SECRET** — 아무 긴 문자열을 하나 정해 Vercel 환경 변수 `CRON_SECRET` 과 GitHub → Settings → Secrets and variables → Actions 의 `CRON_SECRET` 에 **같은 값**으로 등록.
 4. Vercel 에서 **Redeploy** (환경 변수는 다시 배포해야 적용).
-5. 확인: GitHub → Actions → **care-check** → Run workflow → 로그에 `{"families":…}` 가 나오면 성공. 휴대폰에서 '휴대폰 알림 받기'를 누르면 "늘봄을 닫아 두거나 화면이 꺼져 있어도 알림이 와요"가 표시됩니다.
+5. **cron-job.org** (10분 간격): 가입 → CREATE CRONJOB → URL `https://senior-welfare-web.vercel.app/api/check`, Every 10 minutes, ADVANCED 탭 Headers 에 `Authorization` = `Bearer <CRON_SECRET>`, Time zone `Asia/Seoul` → TEST RUN 에서 200 OK 확인 → NOTIFICATIONS 에서 실패 2번 시 메일. (GitHub 무료 예약은 약 1시간 간격이라 예비로만 씀)
+6. 확인: GitHub → Actions → **care-check** → Run workflow → 로그에 `{"families":…}` 가 나오면 성공. 휴대폰에서 '휴대폰 알림 받기'를 누르면 "늘봄을 닫아 두거나 화면이 꺼져 있어도 알림이 와요"가 표시됩니다.
 
-동작: 어르신 앱이 긴급 요청·미확인 알림을 만들면 `/api/notify` 가 보호자 기기로 바로 보냅니다. 앱이 모두 닫혀 있으면 GitHub Actions 가 10분마다 `/api/check` 를 불러 기상·복약 미확인을 보호자에게, 약 시간을 어르신에게 보냅니다. (같은 알림은 한 번만, GitHub 사정으로 몇 분 늦을 수 있음) 어르신이 '일어났어요'·'먹었어요'를 누르면 `/api/notify-checkin` 이 서버에 저장된 기록을 확인하고 보호자 기기로 "일어나셨어요 / 약을 드셨어요"를 보냅니다. (같은 날 같은 항목은 한 번만) 서버는 보낸 기기 수와 실패 이유를 로그로 남깁니다.
+동작: 어르신 앱이 긴급 요청·미확인 알림을 만들면 `/api/notify` 가 보호자 기기로 바로 보냅니다. 앱이 모두 닫혀 있으면 cron-job.org 가 10분마다(예비로 GitHub Actions) `/api/check` 를 불러 기상·복약 미확인을 보호자에게, 약 시간을 어르신에게 보냅니다. (같은 알림은 한 번만, GitHub 사정으로 몇 분 늦을 수 있음) 어르신이 '일어났어요'·'먹었어요'를 누르면 `/api/notify-checkin` 이 서버에 저장된 기록을 확인하고 보호자 기기로 "일어나셨어요 / 약을 드셨어요"를 보냅니다. (같은 날 같은 항목은 한 번만) 서버는 보낸 기기 수와 실패 이유를 로그로 남깁니다.
 
 ## 9. 알려진 한계
 
 - 휴대폰 알림이 꺼져 있거나 무음·방해금지 모드면 알림을 놓칠 수 있습니다. 폰이 꺼지거나 인터넷이 끊기면 아무도 모르므로, '앱이 며칠 열리지 않으면 복지사가 전화' 같은 대비책이 필요합니다. (복지사 요약의 P5 연락 공백이 그 시작)
-- 앱이 모두 닫혀 있을 때의 확인은 10분마다로 예약했지만, GitHub 무료 예약 실행이 밀려 **실제로는 약 1시간 간격**입니다. 그동안 '약 드실 시간' 안내와 미확인 알림이 늦을 수 있습니다. (cron-job.org 로 10분 간격 예정)
+- 앱이 모두 닫혀 있을 때의 확인은 **10분 간격**(cron-job.org)이라, '약 드실 시간' 안내와 미확인 알림이 최대 10분 늦을 수 있습니다. cron-job.org 가 멈추면 GitHub Actions(약 1시간 간격)가 예비로 돕니다.
 - 약은 **매일 같은 시간**으로만 설정할 수 있습니다. 요일별 복용과 약마다 다른 놓침 기준(현재 60분 고정)은 아직 없습니다.
 - 가족 코드(6자리)를 아는 사람은 기록을 볼 수 있습니다. 프로토타입 수준의 보호이며, 서비스 전에는 계정 인증과 역할별 규칙이 필요합니다.
 - `VITE_AUTH_MODE=firebase` 로 바꾸기 전까지 계정은 시연용이라 보안이 없습니다. (전환 방법: [계정 로그인으로 전환하기](#계정-로그인으로-전환하기)) 시연용 모드의 복지사 화면은 어르신 1명 고정입니다.
