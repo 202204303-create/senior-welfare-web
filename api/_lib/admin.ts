@@ -13,6 +13,8 @@ export function firebaseAdmin() {
     if (!raw) throw new Error('FIREBASE_SERVICE_ACCOUNT 환경 변수가 설정되지 않았습니다.')
     const json = raw.trim().startsWith('{') ? raw : Buffer.from(raw, 'base64').toString('utf8')
     initializeApp({ credential: cert(JSON.parse(json)) })
+    // 한 번 더 막기: 비어 있는 값(undefined)이 섞여도 저장이 실패하지 않게 합니다. (처음 한 번만 설정 가능)
+    getFirestore().settings({ ignoreUndefinedProperties: true })
   }
   return { db: getFirestore(), messaging: getMessaging() }
 }
