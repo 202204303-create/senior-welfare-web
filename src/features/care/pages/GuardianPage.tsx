@@ -411,7 +411,7 @@ function GuardianDashboard({ code, onRemove }: { code: string; onRemove: () => v
     setAcking(a.id)
     setAckError(null)
     try {
-      await ackAlert(code, a.id, family.guardianName)
+      await ackAlert(code, a.id, family.guardianName.trim() || '보호자')
       // 이 알림에 대한 화면 알림도 함께 확인 처리합니다.
       const { notices, dismissNotice } = useGuardianNoticeStore.getState()
       notices.filter((n) => n.key === `alert-${a.id}`).forEach((n) => dismissNotice(n.id))

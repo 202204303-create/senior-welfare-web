@@ -29,7 +29,7 @@ export function FirstSetup() {
         처음 오셨나요?
       </p>
       <p className="mt-1 text-base text-ink">
-        지금 보이는 이름({profile.name})과 약은 <b>예시</b>예요. 이름을 넣으면 예시 약을 지우고 내 약을 넣을
+        지금 보이는 이름({profile.name})·보호자·약은 <b>예시</b>예요. 이름을 넣으면 예시를 지우고 내 약을 넣을
         수 있어요.
       </p>
       <form
@@ -37,7 +37,15 @@ export function FirstSetup() {
         onSubmit={(e) => {
           e.preventDefault()
           if (!clean) return
-          updateProfile({ name: clean })
+          // 예시 연락처·보호자 정보도 함께 비웁니다. (모르는 사람 이름이 알림에 나오지 않게)
+          const sample = (k: 'phone' | 'guardianName' | 'guardianPhone') =>
+            profile[k] === DEFAULT_PROFILE[k] ? '' : profile[k]
+          updateProfile({
+            name: clean,
+            phone: sample('phone'),
+            guardianName: sample('guardianName'),
+            guardianPhone: sample('guardianPhone'),
+          })
           finishSetup(true)
           navigate('/care')
         }}

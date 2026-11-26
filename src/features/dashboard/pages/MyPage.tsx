@@ -6,7 +6,7 @@ import { FONT_SCALE_PX, useSettingsStore, type FontScale } from '@/shared/store/
 import { getAge, useUserStore } from '@/features/auth/store/useUserStore'
 import type { UserProfile } from '@/features/auth/types'
 
-const PROVIDER_LABEL = { kakao: '카카오 계정', naver: '네이버 계정', guest: '둘러보기 모드' }
+const PROVIDER_LABEL = { kakao: '카카오 계정', naver: '네이버 계정', guest: '가입 없이 사용 중' }
 const SCALE_LABEL: Record<FontScale, string> = { normal: '보통', large: '크게', xlarge: '아주 크게' }
 
 export function MyPage() {
@@ -83,7 +83,7 @@ export function MyPage() {
           </div>
         </InfoCard>
 
-        <InfoCard title="보호자 정보" subtitle="안부 미확인 시 알림을 받는 분이에요">
+        <InfoCard title="보호자 정보" subtitle="휴대폰 알림은 '알림' 화면의 연결 링크로 연결한 분께 가요">
           <div className="grid gap-4 sm:grid-cols-2">
             <TextField
               label="보호자 이름"

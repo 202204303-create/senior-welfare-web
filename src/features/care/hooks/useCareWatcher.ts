@@ -46,7 +46,7 @@ export function useAlertDispatch() {
 
   const dispatch = useCallback(
     (key: string, reason: string) => {
-      const recipients = [profile.guardianName, '담당 사회복지사']
+      const recipients = [profile.guardianName.trim() || '보호자', '담당 사회복지사']
       // 카카오톡·문자는 아직 실제로 보내지 않으므로, 실제로 쓰는 휴대폰 알림만 기록합니다.
       const sent = pushAlert(key, {
         reason,

@@ -1,26 +1,14 @@
-import {
-  BellRing,
-  MessageCircle,
-  Settings2,
-  Smartphone,
-  UserRoundCheck,
-  Volume2,
-  VolumeX,
-} from 'lucide-react'
+import { BellRing, ChevronRight, Settings2, UserRoundCheck, Volume2, VolumeX } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { DEMO_FAMILY_CODE } from '@/features/auth/lib/demoAccounts'
 import { FamilyCodeCard } from '@/features/care/components/CareWidgets'
 import { PushPermission } from '@/features/care/components/PushPermission'
 import { CHANNEL_LABEL, READY_CHANNELS } from '@/features/care/hooks/useCareWatcher'
-import { useCareStore, type AlertChannel } from '@/features/care/store/useCareStore'
-import { useUserStore } from '@/features/auth/store/useUserStore'
+import { useCareStore } from '@/features/care/store/useCareStore'
+import { DEFAULT_PROFILE, useUserStore } from '@/features/auth/store/useUserStore'
 import { speak } from '@/shared/lib/notify'
 import { useSettingsStore } from '@/shared/store/useSettingsStore'
 import { BigButton, InfoCard, PageHeader, TextField } from '@/shared/ui'
-
-const CHANNEL_ICON: Record<AlertChannel, typeof BellRing> = {
-  webpush: BellRing,
-  kakao: MessageCircle,
-  sms: Smartphone,
-}
 
 /**
  * 알림 화면: 누구에게(보호자 연결), 어떻게(휴대폰 알림·음성), 언제(기상 확인 시간) 알릴지 정하고
@@ -31,6 +19,9 @@ export function AlertsPage() {
   const profile = useUserStore((s) => s.profile)
   const voiceGuide = useSettingsStore((s) => s.voiceGuide)
   const setVoiceGuide = useSettingsStore((s) => s.setVoiceGuide)
+  const guardianName = profile.guardianName.trim()
+  // 시연용 가족이 아니면, 처음 들어 있던 예시 보호자를 '예시'라고 알려 줍니다.
+  const sampleGuardian = care.familyCode !== DEMO_FAMILY_CODE && guardianName === DEFAULT_PROFILE.guardianName
 
   return (
     <div className="animate-fade-up">
@@ -38,27 +29,35 @@ export function AlertsPage() {
 
       <div className="grid gap-5 lg:grid-cols-2">
         <div className="space-y-5">
-          <InfoCard title="보호자·복지사" icon={<UserRoundCheck />} subtitle="알림을 받는 분 · 연결 링크">
-            <ul className="space-y-2">
-              <li className="flex items-center justify-between rounded-2xl bg-white/80 p-4 ring-1 ring-brand-100">
-                <span>
-                  <span className="block text-lg font-bold">{profile.guardianName}</span>
-                  <span className="text-base text-ink-soft">{profile.guardianPhone}</span>
+          <InfoCard title="보호자" icon={<UserRoundCheck />} subtitle="보호자 정보 · 연결 링크">
+            {guardianName ? (
+              <Link
+                to="/my"
+                className="flex items-center justify-between gap-3 rounded-2xl bg-white/80 p-4 ring-1 ring-brand-100 hover:bg-brand-50"
+              >
+                <span className="min-w-0">
+                  <span className="block text-lg font-bold">{guardianName}</span>
+                  <span className="text-base text-ink-soft">{profile.guardianPhone || '연락처 없음'}</span>
                 </span>
-                <span className="shrink-0 rounded-full bg-brand-100 px-3 py-1 text-sm font-bold whitespace-nowrap text-brand-700">
-                  보호자
+                <span className="flex shrink-0 items-center gap-1 text-sm font-bold whitespace-nowrap text-brand-700">
+                  {sampleGuardian ? '예시 · 고치기' : '고치기'}
+                  <ChevronRight className="size-4" aria-hidden />
                 </span>
-              </li>
-              <li className="flex items-center justify-between rounded-2xl bg-white/80 p-4 ring-1 ring-brand-100">
-                <span>
-                  <span className="block text-lg font-bold">이수진 복지사</span>
-                  <span className="text-base text-ink-soft">중구노인종합복지관</span>
+              </Link>
+            ) : (
+              <Link
+                to="/my"
+                className="flex min-h-14 items-center justify-between gap-3 rounded-2xl bg-amber-50 p-4 text-base font-bold text-amber-900 ring-1 ring-amber-200"
+              >
+                보호자 이름·연락처를 아직 안 넣었어요
+                <span className="flex shrink-0 items-center gap-1 whitespace-nowrap text-brand-700">
+                  넣기 <ChevronRight className="size-4" aria-hidden />
                 </span>
-                <span className="shrink-0 rounded-full bg-violet-100 px-3 py-1 text-sm font-bold whitespace-nowrap text-violet-700">
-                  복지사
-                </span>
-              </li>
-            </ul>
+              </Link>
+            )}
+            <p className="mt-2 text-sm text-ink-soft">
+              담당 복지사가 정해지면 복지사 화면에서도 함께 지켜봐요.
+            </p>
             <FamilyCodeCard />
           </InfoCard>
 
@@ -70,35 +69,8 @@ export function AlertsPage() {
               onChange={(e) => care.setWakeUpDeadline(e.target.value)}
               hint="이 시간까지 '일어났어요'를 누르지 않으면 알림이 가요."
             />
-            <p className="mb-2 mt-5 text-base font-bold">알림 보낼 방법</p>
-            <div className="grid grid-cols-3 gap-2">
-              {(Object.keys(CHANNEL_LABEL) as AlertChannel[]).map((c) => {
-                const Icon = CHANNEL_ICON[c]
-                const ready = READY_CHANNELS.includes(c)
-                const on = ready && care.channels.includes(c)
-                return (
-                  <button
-                    key={c}
-                    onClick={() => ready && care.toggleChannel(c)}
-                    aria-pressed={on}
-                    disabled={!ready}
-                    className={`flex min-h-20 flex-col items-center justify-center gap-1 rounded-2xl text-sm font-bold ring-2 transition ${
-                      on
-                        ? 'bg-brand-600 text-white ring-brand-600'
-                        : ready
-                          ? 'bg-white/80 text-ink-soft ring-brand-100'
-                          : 'cursor-not-allowed bg-slate-50 text-slate-400 ring-slate-100'
-                    }`}
-                  >
-                    <Icon className="size-6" aria-hidden />
-                    {CHANNEL_LABEL[c]}
-                    {!ready && <span className="text-xs font-semibold">준비 중</span>}
-                  </button>
-                )
-              })}
-            </div>
-            <p className="mt-2 text-sm text-ink-soft">
-              카카오톡·문자 발송은 준비 중이에요. 지금은 휴대폰 알림으로 알려 드려요.
+            <p className="mt-5 rounded-2xl bg-white/80 p-4 text-base ring-1 ring-brand-100">
+              일이 생기면 연결된 보호자 휴대폰으로 알려 드려요.
             </p>
             <PushPermission
               role="elder"
