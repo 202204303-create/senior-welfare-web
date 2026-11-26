@@ -35,6 +35,43 @@ export interface ElderReminder {
   body: string
 }
 
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/
+const validIso = (v: unknown): v is string => typeof v === 'string' && !Number.isNaN(Date.parse(v))
+
+/**
+ * Firestore 에서 읽은 가족 문서를 안전한 모양으로 고칩니다.
+ * 설정이 덜 된 가족(예: 마지막 사용 시각만 있는 문서)이나 예전 형식의 문서 때문에
+ * 서버 점검 전체가 멈추지 않도록, 확인에 필요한 값이 없으면 null 을 돌려줍니다.
+ */
+export function normalizeFamily<T extends object>(raw: T | undefined | null): (T & FamilyDoc) | null {
+  if (!raw || typeof raw !== 'object') return null
+  const r = raw as Record<string, unknown>
+  const meds = Array.isArray(r.medications) ? r.medications : []
+  const medications: Medication[] = meds
+    .filter(
+      (m): m is Medication =>
+        !!m &&
+        typeof m === 'object' &&
+        typeof (m as Medication).id === 'string' &&
+        HHMM.test(String((m as Medication).time)),
+    )
+    .map((m) => ({ ...m, createdAt: validIso(m.createdAt) ? m.createdAt : undefined }))
+  const wakeUpDeadline =
+    typeof r.wakeUpDeadline === 'string' && HHMM.test(r.wakeUpDeadline) ? r.wakeUpDeadline : null
+  // 기상 시간도 약도 없으면 아직 설정 전인 가족으로 보고 건너뜁니다.
+  if (!wakeUpDeadline && medications.length === 0) return null
+  const grace = Number(r.medGraceMinutes)
+  return {
+    ...raw,
+    elderName: typeof r.elderName === 'string' && r.elderName ? r.elderName : '어르신',
+    guardianName: typeof r.guardianName === 'string' ? r.guardianName : '보호자',
+    medications,
+    wakeUpDeadline: wakeUpDeadline ?? '10:00',
+    medGraceMinutes: Number.isFinite(grace) && grace > 0 ? grace : 60,
+    lastSeenAt: validIso(r.lastSeenAt) ? r.lastSeenAt : undefined,
+  } as T & FamilyDoc
+}
+
 /** 한국 시간 기준 날짜(YYYY-MM-DD)와 0시부터 지난 분 */
 export function kstClock(now: Date): { dateKey: string; minutes: number } {
   const parts = new Intl.DateTimeFormat('en-CA', {

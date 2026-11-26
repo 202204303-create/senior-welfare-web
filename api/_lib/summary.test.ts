@@ -7,7 +7,14 @@ import { runCheck } from '../check.ts'
 import { sendAlertPush } from '../notify.ts'
 import { sendCheckinPush } from '../notify-checkin.ts'
 import { FakeDb, FakeMessaging } from './fakeFirestore.ts'
-import { buildSummary, findEscalations, isResolved, refreshSummary, type ActionDoc, type AlertDoc } from './summary.ts'
+import {
+  buildSummary,
+  findEscalations,
+  isResolved,
+  refreshSummary,
+  type ActionDoc,
+  type AlertDoc,
+} from './summary.ts'
 import { refreshForWorker } from '../refresh-summary.ts'
 
 const CODE = 'ABC234'
@@ -44,7 +51,9 @@ const build = (now: string, over: Partial<Parameters<typeof buildSummary>[0]> = 
 
 test('이슈가 없고 기상·약을 모두 확인하면 "정상"', () => {
   const s = build('13:00', {
-    days: { '2026-11-17': { wakeUpAt: iso('07:30'), takenMeds: { 'm-1': iso('08:05'), 'm-2': iso('12:35') } } },
+    days: {
+      '2026-11-17': { wakeUpAt: iso('07:30'), takenMeds: { 'm-1': iso('08:05'), 'm-2': iso('12:35') } },
+    },
     family: { ...family, lastSeenAt: iso('12:50') } as never,
   })
   assert.equal(s.status, '정상')
@@ -60,20 +69,32 @@ test('P1: 아직 확인하지 않은 긴급 요청은 "위험", 누군가 확인
   assert.equal(open.highestGrade, 'P1')
   assert.equal(open.status, '위험')
   assert.equal(open.openIssues[0].type, 'sos')
-  const acked = build('11:00', { alerts: [sos(iso('10:50'), { ackAt: iso('10:55'), ackBy: '담당 사회복지사' })] })
-  assert.equal(acked.openIssues.some((i) => i.type === 'sos'), false)
+  const acked = build('11:00', {
+    alerts: [sos(iso('10:50'), { ackAt: iso('10:55'), ackBy: '담당 사회복지사' })],
+  })
+  assert.equal(
+    acked.openIssues.some((i) => i.type === 'sos'),
+    false,
+  )
 })
 
 test('P2: 보호자가 30분 넘게 확인하지 않은 기상 알림, 기상 확인이 생기면 해결로 본다', () => {
   const before = build('10:25', { alerts: [wakeAlert(iso('10:00'))] })
-  assert.equal(before.openIssues.some((i) => i.type === 'guardian-unacked'), false, '30분 전에는 올리지 않음')
+  assert.equal(
+    before.openIssues.some((i) => i.type === 'guardian-unacked'),
+    false,
+    '30분 전에는 올리지 않음',
+  )
   const after = build('10:35', { alerts: [wakeAlert(iso('10:00'))] })
   assert.equal(after.openIssues.find((i) => i.grade === 'P2')?.alertId, 'a-wake')
   const resolved = build('10:35', {
     alerts: [wakeAlert(iso('10:00'))],
     days: { '2026-11-17': { wakeUpAt: iso('10:20'), takenMeds: {} } },
   })
-  assert.equal(resolved.openIssues.some((i) => i.type === 'guardian-unacked'), false)
+  assert.equal(
+    resolved.openIssues.some((i) => i.type === 'guardian-unacked'),
+    false,
+  )
 })
 
 test('P3: 기상 마감이 지났는데 기상 확인이 없으면 "관찰"', () => {
@@ -86,9 +107,15 @@ test('P3: 기상 마감이 지났는데 기상 확인이 없으면 "관찰"', ()
 test('P4: 어제 기록이 있는데 어제도 오늘도 놓친 약만 "반복 놓침", 어제 기록이 없으면 세지 않는다', () => {
   const today = { wakeUpAt: iso('07:30'), takenMeds: {} }
   const noYesterday = build('09:30', { days: { '2026-11-17': today } })
-  assert.equal(noYesterday.openIssues.some((i) => i.type === 'med-repeat'), false)
+  assert.equal(
+    noYesterday.openIssues.some((i) => i.type === 'med-repeat'),
+    false,
+  )
   const s = build('09:30', {
-    days: { '2026-11-17': today, '2026-11-16': { wakeUpAt: iso('07:30', '2026-11-16'), takenMeds: { 'm-2': 'x' } } },
+    days: {
+      '2026-11-17': today,
+      '2026-11-16': { wakeUpAt: iso('07:30', '2026-11-16'), takenMeds: { 'm-2': 'x' } },
+    },
   })
   const repeats = s.openIssues.filter((i) => i.type === 'med-repeat')
   assert.equal(repeats.length, 1) // m-1 만 어제도 놓침
@@ -97,13 +124,22 @@ test('P4: 어제 기록이 있는데 어제도 오늘도 놓친 약만 "반복 �
 
 test('P5: 3일 넘게 연락이 없으면 "연락 필요", 복지사 처리 기록도 연락으로 본다', () => {
   const fam = { ...family, lastSeenAt: iso('09:00', '2026-11-13') } as never
-  const s = build('09:30', { family: fam, days: { '2026-11-17': { wakeUpAt: null as never, takenMeds: {} } } })
-  assert.equal(s.openIssues.some((i) => i.type === 'no-contact'), true)
+  const s = build('09:30', {
+    family: fam,
+    days: { '2026-11-17': { wakeUpAt: null as never, takenMeds: {} } },
+  })
+  assert.equal(
+    s.openIssues.some((i) => i.type === 'no-contact'),
+    true,
+  )
   const withAction = build('09:30', {
     family: fam,
     actions: [{ id: 'x1', at: iso('08:00'), result: 'call_ok', issueType: 'no-contact' }],
   })
-  assert.equal(withAction.openIssues.some((i) => i.type === 'no-contact'), false)
+  assert.equal(
+    withAction.openIssues.some((i) => i.type === 'no-contact'),
+    false,
+  )
   assert.equal(withAction.lastContactAt, iso('08:00'))
 })
 
@@ -142,7 +178,10 @@ test('에스컬레이션 대상: 긴급·확인됨·이미 올린 알림·해결
     kst('10:00'),
     days,
   )
-  assert.deepEqual(found.map((a) => a.id), ['a-2'])
+  assert.deepEqual(
+    found.map((a) => a.id),
+    ['a-2'],
+  )
   assert.equal(isResolved(med('a-1'), days), true)
 })
 
@@ -161,7 +200,10 @@ beforeEach(() => {
 })
 
 test('refreshSummary 는 families/{코드}/summary/current 에 저장한다', async () => {
-  db.store.set(`families/${CODE}/days/2026-11-17`, { wakeUpAt: iso('07:30'), takenMeds: { 'm-1': iso('08:01') } })
+  db.store.set(`families/${CODE}/days/2026-11-17`, {
+    wakeUpAt: iso('07:30'),
+    takenMeds: { 'm-1': iso('08:01') },
+  })
   const s = await refreshSummary(asDb(), CODE, kst('09:00'))
   assert.equal(s?.status, '정상')
   assert.deepEqual([summaryDoc()?.todayMedDone, summaryDoc()?.todayMedTotal], [1, 2])
@@ -183,19 +225,47 @@ test('보호자가 30분 넘게 확인하지 않은 알림은 복지사에게 �
 })
 
 test('보호자가 이미 확인한 알림은 올리지 않는다', async () => {
-  db.store.set(`families/${CODE}/alerts/a-1`, { ...wakeAlert(iso('10:00'), { id: 'a-1', ackAt: iso('10:10') }) })
+  db.store.set(`families/${CODE}/alerts/a-1`, {
+    ...wakeAlert(iso('10:00'), { id: 'a-1', ackAt: iso('10:10') }),
+  })
   const r = await runCheck(asDb(), asFcm(), kst('10:40'))
   assert.equal(r.escalations, 0)
 })
 
-test('알림 기기가 없는 가족도 요약은 만든다', async () => {
+test('알림 기기가 없어도 최근에 쓴 가족·복지사 담당 가족은 요약을 만든다', async () => {
   db.store.delete(`families/${CODE}/pushTokens/g1`)
   db.store.delete(`families/${CODE}/pushTokens/w1`)
-  db.store.set(`families/OTHER2`, { ...family, elderName: '이순자' })
+  db.store.set(`families/OTHER2`, { ...family, elderName: '이순자', lastSeenAt: kst('09:00').toISOString() })
+  db.store.set(`workers/w-1/assignments/${CODE}`, { assignedAt: kst('08:00').toISOString() })
   const r = await runCheck(asDb(), asFcm(), kst('10:05'))
   assert.equal(r.families, 0)
   assert.equal(r.summaries, 2)
   assert.equal(summaryDoc('OTHER2')?.highestGrade, 'P3')
+})
+
+test('일주일 넘게 안 쓰고 담당도 아닌 가족은 요약을 만들지 않는다 (무료 사용량 절약)', async () => {
+  db.store.delete(`families/${CODE}/pushTokens/g1`)
+  db.store.delete(`families/${CODE}/pushTokens/w1`)
+  db.store.set(`families/OLD111`, { ...family, lastSeenAt: '2026-01-01T00:00:00.000Z' })
+  db.store.set(`families/NEVER1`, { ...family })
+  const r = await runCheck(asDb(), asFcm(), kst('10:05'))
+  assert.equal(r.summaries, 0)
+  assert.equal(summaryDoc('OLD111'), undefined)
+})
+
+test('설정이 덜 되거나 깨진 가족이 있어도 점검은 멈추지 않는다', async () => {
+  const now = kst('10:05').toISOString()
+  db.store.set(`families/HALF11`, { lastSeenAt: now })
+  db.store.set(`families/HALF11/pushTokens/t`, { token: 'half', role: 'guardian' })
+  db.store.set(`families/BAD111`, {
+    ...family,
+    lastSeenAt: now,
+    medications: [{ id: 'x', name: 'x', time: '08:00', slot: '아침', createdAt: 'nope' }],
+  })
+  db.store.set(`families/BAD111/pushTokens/t`, { token: 'bad', role: 'guardian' })
+  const r = await runCheck(asDb(), asFcm(), kst('10:05'))
+  assert.equal(r.errors, 0)
+  assert.ok(r.guardianAlerts >= 2) // 원래 가족(CODE)의 기상 미확인·약 놓침은 그대로 보냄
 })
 
 test('긴급 요청은 보호자와 복지사에게 모두 보내고 요약을 바로 갱신한다', async () => {
@@ -208,7 +278,10 @@ test('긴급 요청은 보호자와 복지사에게 모두 보내고 요약을 �
 })
 
 test('기상·복약 체크가 서버에 기록되면 요약이 바로 갱신된다', async () => {
-  db.store.set(`families/${CODE}/days/2026-11-17`, { wakeUpAt: iso('07:30'), takenMeds: { 'm-1': iso('08:01') } })
+  db.store.set(`families/${CODE}/days/2026-11-17`, {
+    wakeUpAt: iso('07:30'),
+    takenMeds: { 'm-1': iso('08:01') },
+  })
   await sendCheckinPush(asDb(), asFcm(), CODE, '2026-11-17', 'wake', undefined, kst('08:10'))
   assert.equal(summaryDoc()?.todayWakeAt, iso('07:30'))
   assert.equal(summaryDoc()?.todayMedDone, 1)
@@ -228,7 +301,10 @@ test('통화 · 이상 없음으로 처리하면 기상 미확인 이슈가 닫�
   assert.equal(open.openIssues[0].type, 'wake-missed')
   assert.equal(open.handledToday, false)
   const closed = build('10:30', { actions: [act({ issueType: 'wake-missed' })] })
-  assert.equal(closed.openIssues.some((i) => i.type === 'wake-missed'), false)
+  assert.equal(
+    closed.openIssues.some((i) => i.type === 'wake-missed'),
+    false,
+  )
   assert.equal(closed.status, '정상')
   assert.equal(closed.handledToday, true)
   assert.equal(closed.lastActionAt, iso('10:20'))
@@ -256,7 +332,10 @@ test('정정 기록이 가리키는 처리는 없던 일로 본다', () => {
       { id: 'fix-1', at: iso('10:21'), type: '정정', corrects: 'act-1' },
     ],
   })
-  assert.equal(s.openIssues.some((i) => i.type === 'wake-missed'), true)
+  assert.equal(
+    s.openIssues.some((i) => i.type === 'wake-missed'),
+    true,
+  )
   assert.equal(s.handledToday, false)
   assert.equal(s.lastActionAt, null)
 })
@@ -266,7 +345,10 @@ test('긴급 요청은 해당 알림에 대한 통화 · 이상 없음 처리로
     alerts: [sos(iso('10:50'))],
     actions: [act({ id: 'act-2', at: iso('10:55'), issueType: 'sos', alertId: 'a-sos' })],
   })
-  assert.equal(s.openIssues.some((i) => i.type === 'sos'), false)
+  assert.equal(
+    s.openIssues.some((i) => i.type === 'sos'),
+    false,
+  )
 })
 
 test('요약에는 어르신 이름·전화·보호자 이름이 들어가 큐가 요약만 읽으면 된다', () => {
@@ -286,7 +368,8 @@ describe('/api/refresh-summary: 복지사만, 담당 가족만', () => {
     if (token === 'bad') throw new Error('invalid')
     return { uid: token }
   }
-  const call = (code: string, auth: string | null) => refreshForWorker(asDb(), verify, code, auth, kst('10:30'))
+  const call = (code: string, auth: string | null) =>
+    refreshForWorker(asDb(), verify, code, auth, kst('10:30'))
 
   beforeEach(() => {
     db.store.set('users/w-ok', { role: 'worker' })

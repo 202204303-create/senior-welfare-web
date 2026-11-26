@@ -34,7 +34,15 @@ beforeEach(() => {
 
 test('앱이 모두 닫혀 있어도 10:05에 기상 미확인·약 놓침을 보호자에게 보내고 기록을 남긴다', async () => {
   const r = await run('10:05')
-  assert.deepEqual(r, { families: 1, guardianAlerts: 2, elderReminders: 0, summaries: 1, escalations: 0 })
+  assert.deepEqual(r, {
+    families: 1,
+    guardianAlerts: 2,
+    elderReminders: 0,
+    summaries: 1,
+    escalations: 0,
+    errors: 0,
+    errorSamples: [],
+  })
   assert.equal(sentTo('guardian-phone').length, 2)
   assert.match(sentTo('guardian-phone')[0], /10:00까지 기상 확인/)
   assert.equal(sentTo('elder-phone').length, 0, '보호자용 알림은 어르신 기기로 가지 않음')
@@ -59,7 +67,9 @@ test('어르신 앱이 이미 만든 알림(같은 key)은 서버가 다시 만�
 test('약 드실 시간에는 어르신 기기로 한 번만 안내한다', async () => {
   const r = await run('08:05')
   assert.equal(r.elderReminders, 1)
-  assert.deepEqual(sentTo('elder-phone'), ["혈압약 드실 시간이에요. 드신 뒤 늘봄에서 '먹었어요'를 눌러 주세요."])
+  assert.deepEqual(sentTo('elder-phone'), [
+    "혈압약 드실 시간이에요. 드신 뒤 늘봄에서 '먹었어요'를 눌러 주세요.",
+  ])
   await run('08:15')
   assert.equal(sentTo('elder-phone').length, 1)
 })
@@ -67,7 +77,15 @@ test('약 드실 시간에는 어르신 기기로 한 번만 안내한다', asyn
 test('약을 드셨거나 일어나셨으면 보내지 않는다', async () => {
   db.store.set(`families/${CODE}/days/2026-11-17`, { wakeUpAt: 'x', takenMeds: { 'm-1': 'x' } })
   const r = await run('10:05')
-  assert.deepEqual(r, { families: 1, guardianAlerts: 0, elderReminders: 0, summaries: 1, escalations: 0 })
+  assert.deepEqual(r, {
+    families: 1,
+    guardianAlerts: 0,
+    elderReminders: 0,
+    summaries: 1,
+    escalations: 0,
+    errors: 0,
+    errorSamples: [],
+  })
 })
 
 test('휴대폰 알림을 켠 기기가 없는 가족은 확인하지 않는다', async () => {
@@ -84,7 +102,11 @@ test('앱을 지운 기기(죽은 토큰)는 지운다', async () => {
 })
 
 test('어르신 앱의 긴급 요청은 보호자에게 한 번만 "긴급"으로 보낸다', async () => {
-  db.store.set(`families/${CODE}/alerts/a-9`, { id: 'a-9', kind: 'sos', reason: '김영수 님이 긴급 도움 요청 버튼을 누르셨어요.' })
+  db.store.set(`families/${CODE}/alerts/a-9`, {
+    id: 'a-9',
+    kind: 'sos',
+    reason: '김영수 님이 긴급 도움 요청 버튼을 누르셨어요.',
+  })
   const first = await sendAlertPush(db as unknown as Firestore, fcm as unknown as Messaging, CODE, 'a-9')
   const again = await sendAlertPush(db as unknown as Firestore, fcm as unknown as Messaging, CODE, 'a-9')
   assert.deepEqual(first, { sent: 1, skipped: false })
