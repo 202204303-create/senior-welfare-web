@@ -126,30 +126,41 @@ test('/api/notify 는 잘못된 요청을 서버 키 없이도 거절한다', as
 const checkin = (kind: 'wake' | 'med', medId?: string, dateKey = '2026-11-17', now = kst('08:10')) =>
   sendCheckinPush(db as unknown as Firestore, fcm as unknown as Messaging, CODE, dateKey, kind, medId, now)
 
-test('어르신이 일어났다고 체크하면 보호자에게 한 번만 알린다 (앱이 닫혀 있어도 도착)', async () => {
+test('아침 안부 알림은 기본으로 꺼져 있어 일어나셔도 보호자에게 보내지 않는다', async () => {
   db.store.set(`families/${CODE}/days/2026-11-17`, { wakeUpAt: '2026-11-16T23:05:00Z', takenMeds: {} }) // 08:05 KST
+  const r = await checkin('wake')
+  assert.equal(r.sent, 0)
+  assert.equal(fcm.sent.length, 0)
+})
+
+test('아침 안부 알림을 켠 보호자 기기에만, 조용히, 한 번만 보낸다', async () => {
+  db.store.set(`families/${CODE}/pushTokens/g2`, { token: 'son-phone', role: 'guardian', morning: true })
+  db.store.set(`families/${CODE}/days/2026-11-17`, { wakeUpAt: '2026-11-16T23:05:00Z', takenMeds: {} })
   const first = await checkin('wake')
   const again = await checkin('wake')
   assert.deepEqual(first, { sent: 1, skipped: false })
   assert.deepEqual(again, { sent: 0, skipped: true, reason: 'already-sent' })
-  assert.equal(fcm.sent.length, 1)
-  assert.equal(fcm.sent[0].token, 'guardian-phone')
+  assert.deepEqual(
+    fcm.sent.map((m) => m.token),
+    ['son-phone'],
+    '켜지 않은 보호자(guardian-phone)에게는 가지 않음',
+  )
   assert.equal(fcm.sent[0].data.body, '김영수 님이 일어나셨어요. (오전 8:05)')
+  assert.equal(fcm.sent[0].data.level, 'info')
   assert.equal(fcm.sent[0].data.url, `/guardian?code=${CODE}`)
 })
 
-test('약을 드셨다고 체크하면 약 이름과 함께 보호자에게 알린다', async () => {
+test('약을 드셨다는 체크는 보호자에게 알리지 않는다 (교수님 피드백)', async () => {
+  db.store.set(`families/${CODE}/pushTokens/g2`, { token: 'son-phone', role: 'guardian', morning: true })
   db.store.set(`families/${CODE}/days/2026-11-17`, { takenMeds: { 'm-1': '2026-11-16T23:07:00Z' } })
   const r = await checkin('med', 'm-1')
-  assert.deepEqual(r, { sent: 1, skipped: false })
-  assert.equal(fcm.sent[0].data.body, '김영수 님이 혈압약을(를) 드셨어요. (오전 8:07)')
-  assert.equal(sentTo('elder-phone').length, 0, '어르신 기기로는 보내지 않음')
+  assert.deepEqual(r, { sent: 0, skipped: true, reason: 'no-med-push' })
+  assert.equal(fcm.sent.length, 0)
 })
 
-test('서버에 기록되지 않은 체크, 없는 약, 오래된 날짜는 알리지 않는다', async () => {
+test('서버에 기록되지 않은 기상, 오래된 날짜는 알리지 않는다', async () => {
+  db.store.set(`families/${CODE}/pushTokens/g2`, { token: 'son-phone', role: 'guardian', morning: true })
   assert.equal((await checkin('wake')).reason, 'not-recorded')
-  db.store.set(`families/${CODE}/days/2026-11-17`, { takenMeds: { 'm-1': 'x' } })
-  assert.equal((await checkin('med', 'm-9')).reason, 'not-recorded')
   db.store.set(`families/${CODE}/days/2026-11-10`, { wakeUpAt: 'x', takenMeds: {} })
   assert.equal((await checkin('wake', undefined, '2026-11-10')).reason, 'old-date')
   assert.equal(fcm.sent.length, 0)
