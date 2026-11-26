@@ -1,7 +1,7 @@
 import type { Firestore } from 'firebase-admin/firestore'
 import type { Messaging } from 'firebase-admin/messaging'
 
-export type PushRole = 'guardian' | 'elder'
+export type PushRole = 'guardian' | 'elder' | 'worker'
 
 export interface PushMessage {
   title: string

@@ -3,6 +3,7 @@ import type { Messaging } from 'firebase-admin/messaging'
 import { firebaseAdmin, isValidCode } from './_lib/admin.js'
 import { kstClock, type DayDoc, type FamilyDoc } from './_lib/care.js'
 import { pushToFamily } from './_lib/push.js'
+import { refreshSummary } from './_lib/summary.js'
 
 type Kind = 'wake' | 'med'
 
@@ -75,6 +76,9 @@ export async function sendCheckinPush(
   if (!familySnap.exists) return { sent: 0, skipped: true, reason: 'no-family' }
   const family = familySnap.data() as FamilyDoc
   const day = (daySnap.data() ?? {}) as DayDoc
+
+  // 기록이 바뀌었으니 복지사 화면의 요약도 바로 갱신합니다. (알림 보내기와 별개, 실패해도 계속)
+  await refreshSummary(db, code, now)
 
   let message: string
   let key: string
