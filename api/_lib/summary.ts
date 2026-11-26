@@ -322,6 +322,11 @@ export async function readSnapshot(
   }
 }
 
+/** undefined 값을 뺀 복사본 (Firestore 는 undefined 를 저장하지 못함) */
+export function withoutUndefined<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T
+}
+
 /** 요약을 새로 계산해 families/{code}/summary 에 저장합니다. 알림 쪽 실패와 상관없이 부르도록 오류는 삼킵니다. */
 export async function refreshSummary(
   db: Firestore,
@@ -333,7 +338,14 @@ export async function refreshSummary(
     const snap = snapshot ?? (await readSnapshot(db, code, now))
     if (!snap) return null
     const summary = buildSummary({ ...snap, now })
-    await db.collection('families').doc(code).collection('summary').doc('current').set(summary)
+    // 비어 있는 값(undefined, 예: 아직 처리 기록이 없는 이슈의 lastAction)은 Firestore 가 저장을 거절하므로 빼고 저장합니다.
+    // (이것 때문에 요약이 하나도 저장되지 않던 문제: 점검 결과 summaries: 0)
+    await db
+      .collection('families')
+      .doc(code)
+      .collection('summary')
+      .doc('current')
+      .set(withoutUndefined(summary))
     return summary
   } catch (e) {
     console.log(
