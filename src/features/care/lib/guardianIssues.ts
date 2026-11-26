@@ -86,3 +86,52 @@ export function fromNow(iso: string, now: Date) {
     minute: '2-digit',
   })
 }
+
+/** 보호자 '확인할 일' 한 줄: 지금 문제(이슈)와 아직 확인하지 않은 알림을 하나로 합친 것 */
+export interface GuardianTodo {
+  key: string
+  level: 'urgent' | 'warn'
+  text: string
+  /** 언제 생긴 일인지 (알림이 있으면 그 시각) */
+  at?: string
+  /** '확인했어요'를 누를 알림 (어르신 기기·서버가 보낸 알림이 있을 때만) */
+  alert?: AlertLog
+}
+
+/**
+ * 보호자가 지금 확인할 일 목록. (보호자 화면 맨 위 한곳에서만 보여 주기 위해 한데 모음)
+ * - 지금 문제: 확인 안 한 긴급 요청, 기상 미확인, 놓친 약, 앱 오래 안 열림
+ * - 아직 '확인했어요'를 안 누른 알림 (나중에 해결됐더라도 확인은 필요 → 30분 넘으면 복지사에게 감)
+ * 같은 일(같은 key)은 한 줄로 합치고, 보호자가 이미 확인한 일은 뺍니다. 긴급이 맨 위, 그다음 최근 순.
+ */
+export function buildGuardianTodos(
+  family: FamilyInfo,
+  today: DayRecord,
+  alerts: AlertLog[],
+  now: Date,
+  dateKey: string,
+): GuardianTodo[] {
+  const byKey = new Map(alerts.map((a) => [a.key ?? a.id, a]))
+  const out: GuardianTodo[] = []
+  const used = new Set<string>()
+  for (const i of findCareIssues(family, today, alerts, now, dateKey)) {
+    const a = byKey.get(i.key)
+    if (a?.ackAt) continue // 보호자가 이미 확인한 일
+    used.add(i.key)
+    out.push({
+      key: i.key,
+      level: i.level === 'danger' ? 'urgent' : 'warn',
+      text: a ? a.reason : i.text,
+      at: a?.at,
+      alert: a,
+    })
+  }
+  for (const a of alerts) {
+    const key = a.key ?? a.id
+    if (a.ackAt || used.has(key)) continue
+    used.add(key)
+    out.push({ key, level: a.kind === 'sos' ? 'urgent' : 'warn', text: a.reason, at: a.at, alert: a })
+  }
+  const rank = (t: GuardianTodo) => (t.level === 'urgent' ? 0 : 1)
+  return out.sort((x, y) => rank(x) - rank(y) || (y.at ?? '').localeCompare(x.at ?? ''))
+}

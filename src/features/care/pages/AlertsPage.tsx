@@ -12,9 +12,10 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { DEMO_FAMILY_CODE, hasAssignedWorker } from '@/features/auth/lib/demoAccounts'
 import { watchGuardianDeviceCount } from '@/shared/api/push'
+import { AlertRow } from '@/features/care/components/AlertRow'
 import { FamilyCodeCard } from '@/features/care/components/CareWidgets'
+import { alertLevelOf, alertTime } from '@/features/care/lib/alertDisplay'
 import { PushPermission } from '@/features/care/components/PushPermission'
-import { CHANNEL_LABEL, READY_CHANNELS } from '@/features/care/hooks/useCareWatcher'
 import { useCareStore } from '@/features/care/store/useCareStore'
 import { DEFAULT_PROFILE, useUserStore } from '@/features/auth/store/useUserStore'
 import { speak } from '@/shared/lib/notify'
@@ -149,28 +150,23 @@ export function AlertsPage() {
                 아직 보낸 알림이 없어요.
               </p>
             ) : (
-              <ul className="max-h-80 space-y-2 overflow-y-auto">
+              <ul className="max-h-[28rem] space-y-2 overflow-y-auto">
                 {care.alerts.map((a) => (
-                  <li
+                  <AlertRow
                     key={a.id}
-                    className={`rounded-2xl p-4 ring-1 ${a.kind === 'sos' ? 'bg-rose-50/90 ring-rose-200' : 'bg-amber-50/90 ring-amber-100'}`}
-                  >
-                    <p className="text-base font-semibold">{a.reason}</p>
-                    <p className="mt-1 text-sm text-ink-soft">
-                      {new Date(a.at).toLocaleString('ko-KR', {
-                        month: 'numeric',
-                        day: 'numeric',
-                        hour: 'numeric',
-                        minute: '2-digit',
-                      })}
-                      {' · '}
-                      {a.channels
-                        .filter((c) => READY_CHANNELS.includes(c))
-                        .map((c) => CHANNEL_LABEL[c])
-                        .join(', ') || '보호자 화면'}{' '}
-                      → {a.recipients.join(', ')}
-                    </p>
-                  </li>
+                    level={alertLevelOf(a)}
+                    text={a.reason}
+                    at={a.at}
+                    // 기상·복약 알림의 '보호자 확인'은 어르신께 알리지 않습니다. (교수님 피드백) 긴급 요청만 확인 여부를 조용히 보여 줌
+                    status={
+                      a.kind === 'sos' && a.ackAt
+                        ? {
+                            kind: 'acked',
+                            text: `${alertTime(a.ackAt)} ${a.ackBy ?? '보호자'}님이 확인했어요`,
+                          }
+                        : { kind: 'pending', text: `${a.recipients.join(', ')}께 알렸어요` }
+                    }
+                  />
                 ))}
               </ul>
             )}

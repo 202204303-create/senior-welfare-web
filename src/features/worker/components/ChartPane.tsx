@@ -44,6 +44,7 @@ export function ChartPane({
   chart,
   now,
   todayKey,
+  hideHeader = false,
 }: {
   row: QueueRow
   summary: Summary | null
@@ -51,6 +52,8 @@ export function ChartPane({
   chart: ElderChart
   now: Date
   todayKey: string
+  /** 이름·전화 머리말을 숨김 (쉬운 화면에서 위쪽에 이미 보여 줄 때) */
+  hideHeader?: boolean
 }) {
   const [tab, setTab] = useState<Tab>('timeline')
   const [filter, setFilter] = useState<TimelineKind | 'all'>('all')
@@ -67,7 +70,7 @@ export function ChartPane({
   return (
     <div className="flex min-h-0 flex-col text-[13px]">
       {/* 고정 헤더 */}
-      <div className="border-b border-slate-200 px-4 py-3">
+      <div className={`border-b border-slate-200 px-4 py-3 ${hideHeader ? 'hidden' : ''}`}>
         <h2 className="flex flex-wrap items-center gap-2 text-[17px] font-bold">
           {grade ? (
             <span className={`${tag} ${GRADE_TAG[grade]}`}>
