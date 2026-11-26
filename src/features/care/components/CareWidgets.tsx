@@ -1,5 +1,5 @@
 import { AlarmClock, BellRing, Check, Clock, Cloud, CloudOff, Pill, Share2, Siren, Sun } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getMedStatus, useAlertDispatch, type MedStatus } from '@/features/care/hooks/useCareWatcher'
 import type { Medication } from '@/features/care/types'
@@ -75,6 +75,9 @@ export function WakeUpCard() {
   )
 }
 
+/** 방금 드신 약을 제자리에 두는 시간 */
+const JUST_TAKEN_MS = 4000
+
 const MED_ORDER: Record<MedStatus, number> = { due: 0, upcoming: 1, missed: 2, later: 3, taken: 4 }
 
 /** 현재 시각 기준 약 순서: 지금 드실 약 → 다가오는 약 → 놓친 약 → (내일부터) → 드신 약, 같은 묶음은 시간순 */
@@ -100,7 +103,19 @@ export function MedChecklist({ compact = false }: { compact?: boolean }) {
   const undoMed = medications.find((m) => m.id === undoId)
 
   // 지금 드실 약·다가오는 약을 위에, 시간이 지난 약(놓친 약 → 드신 약)은 아래로 내립니다. (교수님 피드백)
-  const ordered = sortMedsForNow(medications, taken, now, medGraceMinutes)
+  // 방금 '먹었어요'를 누른 약은 몇 초 동안 제자리에 두고 '잘 드셨어요'를 보여 준 뒤 아래로 옮깁니다.
+  // (누르자마자 카드가 사라지면 어르신이 눌렸는지 헷갈리기 때문)
+  const [justTaken, setJustTaken] = useState<string[]>([])
+  const timers = useRef<number[]>([])
+  useEffect(() => () => timers.current.forEach((t) => clearTimeout(t)), [])
+  const markJustTaken = (id: string) => {
+    setJustTaken((ids) => [...ids, id])
+    timers.current.push(
+      window.setTimeout(() => setJustTaken((ids) => ids.filter((x) => x !== id)), JUST_TAKEN_MS),
+    )
+  }
+  const takenForOrder = Object.fromEntries(Object.entries(taken).filter(([id]) => !justTaken.includes(id)))
+  const ordered = sortMedsForNow(medications, takenForOrder, now, medGraceMinutes)
   const list = compact ? ordered.filter((m) => !taken[m.id]).slice(0, 2) : ordered
 
   if (medications.length === 0) {
@@ -139,6 +154,7 @@ export function MedChecklist({ compact = false }: { compact?: boolean }) {
                 onClick={() => {
                   if (isTaken) return setUndoId(med.id)
                   toggleMed(med.id)
+                  markJustTaken(med.id)
                 }}
                 aria-pressed={isTaken}
                 className={`block w-full rounded-2xl p-4 text-left ring-2 transition active:scale-[0.99] ${
@@ -187,6 +203,14 @@ export function MedChecklist({ compact = false }: { compact?: boolean }) {
                 >
                   {med.name}
                 </span>
+                {isTaken && justTaken.includes(med.id) && (
+                  <span
+                    role="status"
+                    className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 text-lg font-bold text-white"
+                  >
+                    <Check className="size-5" strokeWidth={3} aria-hidden />잘 드셨어요
+                  </span>
+                )}
                 {/* 누를 수 있다는 것을 알 수 있도록 안 먹은 약에는 큰 '먹었어요' 표시 */}
                 {!isTaken && (
                   <span
@@ -291,7 +315,9 @@ export function SOSButton({ className = '' }: { className?: string }) {
                 <Check className="size-9" strokeWidth={3} aria-hidden />
               </span>
               <p className="text-xl font-extrabold text-emerald-800">보호자와 복지사에게 알렸어요</p>
-              <p className="text-base text-ink-soft">보호자와 복지사가 곧 연락드릴 거예요.</p>
+              <p className="text-base text-ink-soft">
+                보호자가 확인하면 긴급 버튼 아래에 표시돼요. (소리 없이)
+              </p>
             </div>
             <div className="space-y-3">
               <a
@@ -389,16 +415,30 @@ export function FamilyCodeCard() {
 /** 보호자가 알림을 확인했는지 보여 주는 한 줄 */
 const SOS_SHOW_MS = 3 * 60 * 60 * 1000 // 최근 3시간 안의 긴급 요청만 표시
 
-/** 긴급 요청을 보냈다는 것을 버튼 아래에 남겨 둡니다. (보호자 확인 여부는 어르신께 알리지 않음) */
+/**
+ * 긴급 요청을 보냈다는 것을 버튼 아래에 남겨 둡니다.
+ * 일상 알림(기상·복약)의 확인은 어르신께 알리지 않지만, 긴급 요청만은 '전달됐다'는 것이 가장 중요하므로
+ * 보호자가 확인하면 이 자리에 조용히(소리·알림 없이) 표시합니다.
+ */
 function SosStatus() {
   const now = useNow(30_000)
   const alerts = useCareStore((s) => s.alerts)
   const last = alerts.find((a) => a.kind === 'sos')
   if (!last || now.getTime() - new Date(last.at).getTime() > SOS_SHOW_MS) return null
   return (
-    <div role="status" className="mt-3 rounded-2xl bg-amber-50 p-4 ring-2 ring-amber-200">
+    <div
+      role="status"
+      className={`mt-3 rounded-2xl p-4 ring-2 ${last.ackAt ? 'bg-emerald-50 ring-emerald-200' : 'bg-amber-50 ring-amber-200'}`}
+    >
       <p className="text-base font-bold">{fmtTime(last.at)}에 긴급 도움을 요청했어요.</p>
-      <p className="mt-1 text-sm text-ink-soft">보호자와 담당 복지사에게 알렸어요.</p>
+      {last.ackAt ? (
+        <p className="mt-1 flex items-center gap-1.5 text-base font-bold text-emerald-700">
+          <Check className="size-5" strokeWidth={3} aria-hidden />
+          {last.ackBy ?? '보호자'}님이 확인했어요 · {fmtTime(last.ackAt)}
+        </p>
+      ) : (
+        <p className="mt-1 text-sm text-ink-soft">보호자와 담당 복지사에게 알렸어요.</p>
+      )}
     </div>
   )
 }
