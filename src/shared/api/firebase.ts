@@ -127,3 +127,10 @@ export async function restoreSession(): Promise<User | null> {
   await auth.authStateReady()
   return auth.currentUser
 }
+
+/** 서버 함수에 보낼 로그인 토큰 (로그인이 없으면 null) */
+export async function getIdToken(): Promise<string | null> {
+  if (!getDb() || !app) return null
+  const user = getAuth(app).currentUser
+  return user ? user.getIdToken() : null
+}

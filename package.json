@@ -13,7 +13,8 @@
     "typecheck": "tsc -b",
     "test:api": "tsx --test api/_lib/*.test.ts",
     "typecheck:api": "tsc -p tsconfig.api.json",
-    "test:rules": "npx --yes firebase-tools@15 emulators:exec --only firestore --project demo-neulbom-rules \"tsx --test firestore-tests/*.test.ts\""
+    "test:rules": "npx --yes firebase-tools@15 emulators:exec --only firestore --project demo-neulbom-rules \"tsx --test firestore-tests/*.test.ts\"",
+    "test:web": "tsx --test \"src/**/*.test.ts\""
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.5",
