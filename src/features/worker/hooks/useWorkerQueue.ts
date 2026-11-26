@@ -28,6 +28,7 @@ export function useWorkerQueue(assignments: Assignment[]) {
       assignments.map((a) => ({
         code: a.code,
         displayName: a.displayName,
+        dong: a.dong,
         tags: a.tags,
         pinnedToday: a.pinnedToday,
         summary: summaries[a.code] ?? null,
