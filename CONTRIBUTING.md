@@ -59,6 +59,8 @@ docs/         설계 문서 (role-interfaces.md)
 
 ## 브랜치와 커밋
 
+- **`main` 은 보호되어 있습니다.** 직접 푸시할 수 없고 PR 로만 합칩니다. 팀원의 PR 은 저장소 주인(`.github/CODEOWNERS`)이 **승인(Approve)해야 합칠 수 있고**, 승인 뒤에 새 커밋을 올리면 다시 승인이 필요합니다.
+
 - 브랜치: `main` 은 배포용입니다. 작업은 `feat/기능-내용`, `fix/내용` 브랜치에서 하고 Pull Request로 합칩니다.
   - 예: `feat/care-sos-button`, `fix/guardian-header-wrap`
 - 커밋 메시지는 `종류: 내용` 형식입니다. 종류는 `feat`, `fix`, `style`, `refactor`, `docs`, `chore`를 씁니다.

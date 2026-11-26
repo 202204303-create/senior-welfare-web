@@ -134,6 +134,14 @@ describe('보호자', () => {
     await assertFails(setDoc(doc(db, `families/${CODE}/notes/n1`), { text: 'x' }))
   })
 
+  test('이미 등록한 기기에 아침 안부 알림 설정을 합쳐 저장할 수 있지만, 역할은 바꿀 수 없다', async () => {
+    const db = as('guardian1')
+    const ref = doc(db, `families/${CODE}/pushTokens/g9`)
+    await assertSucceeds(setDoc(ref, { token: 't', role: 'guardian' }))
+    await assertSucceeds(setDoc(ref, { token: 't', role: 'guardian', morning: true }, { merge: true }))
+    await assertFails(setDoc(ref, { role: 'elder' }, { merge: true }))
+  })
+
   test('알림 기기는 보호자 역할로만 등록할 수 있고 목록은 읽을 수 없다', async () => {
     const db = as('guardian1')
     await assertSucceeds(setDoc(doc(db, `families/${CODE}/pushTokens/g1`), { token: 't', role: 'guardian' }))
