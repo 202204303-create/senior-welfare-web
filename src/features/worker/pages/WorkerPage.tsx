@@ -1,221 +1,199 @@
-import { CheckCheck, Pill, ServerOff, ShieldAlert, ShieldCheck, Siren, Sun, Phone } from 'lucide-react'
+import { CheckCircle2, ServerOff, UserRoundX, Undo2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { LogoutButton } from '@/features/auth/components/LogoutButton'
-import { WORKER_FAMILY_CODES } from '@/features/auth/lib/demoAccounts'
-import { ackAlert, watchAlerts, watchDays, watchFamily, type FamilyInfo } from '@/features/care/api/family'
-import { getMedStatus } from '@/features/care/hooks/useCareWatcher'
-import { findCareIssues, fromNow } from '@/features/care/lib/guardianIssues'
-import { todayKey, type AlertLog, type DayRecord } from '@/features/care/store/useCareStore'
+import { undoActions, type SavedAction } from '@/features/worker/api/actions'
+import { ActionSheet } from '@/features/worker/components/ActionSheet'
+import { QueueCardView } from '@/features/worker/components/QueueCardView'
+import { QueueSummaryBar } from '@/features/worker/components/QueueSummaryBar'
+import { WorkerPushSetup } from '@/features/worker/components/WorkerPushSetup'
+import { useAssignments } from '@/features/worker/hooks/useAssignments'
+import { useWorkerQueue } from '@/features/worker/hooks/useWorkerQueue'
+import { buildQueue, filterByGrade } from '@/features/worker/lib/queue'
+import type { QueueCard } from '@/features/worker/lib/queue'
+import type { Grade, Overlay } from '@/features/worker/types'
 import { isFirebaseEnabled } from '@/shared/api/firebase'
 import { useNow } from '@/shared/hooks/useNow'
 import { Logo } from '@/shared/layout/AppLayout'
-import { BigButton, EmptyState, ErrorState, InfoCard, LoadingList, StatusNote } from '@/shared/ui'
+import { EmptyState, ErrorState, LoadingList, StatusNote } from '@/shared/ui'
 
-const WORKER_NAME = '담당 사회복지사'
+const UNDO_SECONDS = 5
 
-const fmtTime = (iso: string) =>
-  new Date(iso).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })
+interface UndoInfo {
+  saved: SavedAction
+  name: string
+  resultLabel: string
+}
 
-/** 복지사 화면: 담당 어르신의 오늘 상태와 긴급 요청을 한곳에서 봅니다. (시연용: 담당 어르신은 코드에 고정) */
+/**
+ * 복지사 화면: 오늘 큐. 담당 어르신의 서버 요약(summary)만 읽어,
+ * 긴급·미확인부터 처리할 수 있게 등급 순으로 보여 줍니다.
+ */
 export function WorkerPage() {
+  const { assignments, loading: assignLoading, error: assignError } = useAssignments()
+  const { rows, loading: summaryLoading, error: summaryError } = useWorkerQueue(assignments)
+  const now = useNow(30_000)
+  const [overlays, setOverlays] = useState<Record<string, Overlay>>({})
+  const [filter, setFilter] = useState<Grade | null>(null)
+  const [active, setActive] = useState<QueueCard | null>(null)
+  const [undo, setUndo] = useState<UndoInfo | null>(null)
+  const [undoError, setUndoError] = useState<string | null>(null)
+
+  const view = buildQueue(rows, overlays)
+  const shown = filterByGrade(view.cards, filter)
+
+  // 되돌리기 안내는 몇 초 뒤에 사라집니다.
+  useEffect(() => {
+    if (!undo) return
+    const id = setTimeout(() => setUndo(null), UNDO_SECONDS * 1000)
+    return () => clearTimeout(id)
+  }, [undo])
+
+  const onSaved = (saved: SavedAction, overlay: Overlay, resultLabel: string) => {
+    const name = active?.row.displayName ?? ''
+    setOverlays((prev) => ({ ...prev, [saved.code]: overlay }))
+    setUndo({ saved, name, resultLabel })
+    setUndoError(null)
+    setActive(null)
+  }
+
+  const doUndo = async () => {
+    if (!undo) return
+    const { saved } = undo
+    setUndo(null)
+    try {
+      await undoActions(saved)
+      setOverlays((prev) => {
+        const next = { ...prev }
+        delete next[saved.code]
+        return next
+      })
+    } catch (e) {
+      setUndoError(`되돌리지 못했어요. 다시 시도해 주세요. (${(e as Error).message})`)
+    }
+  }
+
   return (
     <div className="min-h-dvh">
       <header className="sticky top-0 z-30 border-b border-white/70 bg-white/60 backdrop-blur-xl">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
-          <Logo compact />
-          <span className="flex shrink-0 items-center gap-1">
-            <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-bold whitespace-nowrap text-emerald-700">
+          <Logo />
+          <span className="flex items-center gap-2">
+            <span className="whitespace-nowrap rounded-full bg-emerald-100 px-3 py-1 text-sm font-bold text-emerald-700">
               복지사 화면
             </span>
             <LogoutButton />
           </span>
         </div>
       </header>
-      <main id="main" className="mx-auto max-w-3xl space-y-5 px-4 py-6">
+
+      <main id="main" className="mx-auto max-w-3xl space-y-5 px-4 py-6 pb-28">
         <div>
-          <h1 className="text-3xl font-black">담당 어르신</h1>
-          <p className="mt-1 text-lg text-ink-soft">오늘의 기상·복약 상태와 긴급 요청을 확인해요.</p>
+          <h1 className="text-3xl font-black">오늘 큐</h1>
+          <p className="mt-1 text-lg text-ink-soft">긴급·미확인부터 위에서 아래로 처리해요.</p>
         </div>
+
         {!isFirebaseEnabled ? (
           <EmptyState
             icon={<ServerOff />}
             title="서버 연결이 설정되지 않았어요"
             desc="복지사 화면은 Firebase 설정이 있어야 동작해요."
           />
+        ) : assignError ? (
+          <ErrorState message={assignError} />
+        ) : assignLoading ? (
+          <LoadingList count={2} />
+        ) : assignments.length === 0 ? (
+          <EmptyState
+            icon={<UserRoundX />}
+            title="담당 어르신이 아직 없어요"
+            desc="관리자가 담당 어르신을 배정하면 이곳에 나타나요."
+          />
         ) : (
-          WORKER_FAMILY_CODES.map((code) => <ElderCard key={code} code={code} />)
+          <>
+            <WorkerPushSetup codes={assignments.map((a) => a.code)} />
+            {summaryError && <ErrorState message={summaryError} />}
+            {summaryLoading && view.cards.length === 0 && view.normal.length === 0 && (
+              <LoadingList count={2} />
+            )}
+
+            <QueueSummaryBar view={view} filter={filter} onFilter={setFilter} />
+
+            {undoError && <StatusNote tone="warn">{undoError}</StatusNote>}
+
+            {shown.length > 0 ? (
+              <ul className="space-y-3" aria-label="처리할 어르신">
+                {shown.map((card) => (
+                  <QueueCardView key={card.row.code} card={card} now={now} onHandle={setActive} />
+                ))}
+              </ul>
+            ) : (
+              !summaryLoading && (
+                <div className="glass flex items-center gap-3 rounded-3xl p-5 text-lg font-bold text-emerald-700">
+                  <CheckCircle2 className="size-8 shrink-0" aria-hidden />
+                  {filter ? '이 등급으로 처리할 어르신이 없어요.' : '지금 처리할 일이 없어요.'}
+                </div>
+              )
+            )}
+
+            {view.waiting.length > 0 && (
+              <StatusNote tone="info">
+                {view.waiting.map((r) => r.displayName).join(', ')} 님의 요약을 서버가 준비 중이에요. 10분
+                안에 나타나요.
+              </StatusNote>
+            )}
+
+            {view.normal.length > 0 && (
+              <details className="glass rounded-3xl p-4">
+                <summary className="min-h-12 cursor-pointer text-lg font-extrabold">
+                  정상 {view.normal.length}명
+                </summary>
+                <ul className="mt-3 space-y-2">
+                  {view.normal.map(({ row, summary }) => (
+                    <li key={row.code} className="rounded-2xl bg-white/70 p-3 ring-1 ring-brand-100">
+                      <p className="text-base font-extrabold">{row.displayName} 님 · 정상</p>
+                      <p className="text-sm text-ink-soft">
+                        기상 {summary.todayWakeAt ? '확인' : '확인 전'} · 약{' '}
+                        {summary.todayMedTotal === 0
+                          ? '없음'
+                          : `${summary.todayMedDone}/${summary.todayMedTotal}`}
+                        {summary.elderPhone && (
+                          <>
+                            {' '}
+                            ·{' '}
+                            <a
+                              className="font-bold text-brand-700 underline"
+                              href={`tel:${summary.elderPhone}`}
+                            >
+                              전화
+                            </a>
+                          </>
+                        )}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </>
         )}
       </main>
-    </div>
-  )
-}
 
-function ElderCard({ code }: { code: string }) {
-  const now = useNow(30_000)
-  const dateKey = todayKey(now)
-  const [family, setFamily] = useState<FamilyInfo | null | undefined>(undefined)
-  const [days, setDays] = useState<Record<string, DayRecord>>({})
-  const [alerts, setAlerts] = useState<AlertLog[]>([])
-  const [error, setError] = useState<string | null>(null)
-  const [retry, setRetry] = useState(0)
-  const [acking, setAcking] = useState<string | null>(null)
-  const [ackError, setAckError] = useState<string | null>(null)
-
-  useEffect(() => {
-    const onError = (e: Error) => setError(e.message)
-    const offs = [
-      watchFamily(code, setFamily, onError),
-      watchDays(code, dateKey, setDays, onError),
-      watchAlerts(code, setAlerts, onError),
-    ]
-    return () => offs.forEach((off) => off())
-  }, [code, dateKey, retry])
-
-  if (error) {
-    return (
-      <ErrorState
-        message={error}
-        onRetry={() => {
-          setError(null)
-          setRetry((n) => n + 1)
-        }}
-      />
-    )
-  }
-  if (family === undefined) return <LoadingList count={1} />
-  if (family === null) {
-    return (
-      <EmptyState
-        icon={<ShieldAlert />}
-        title="아직 연결된 어르신 기록이 없어요"
-        desc="어르신 계정(senior)으로 로그인해 기상 확인이나 약 체크를 한 번 하면 이곳에 나타나요."
-      />
-    )
-  }
-
-  const today: DayRecord = days[dateKey] ?? { takenMeds: {} }
-  const issues = findCareIssues(family, today, alerts, now, dateKey)
-  const meds = family.medications.filter(
-    (m) => getMedStatus(m, undefined, now, family.medGraceMinutes) !== 'later',
-  )
-  const taken = meds.filter((m) => today.takenMeds[m.id]).length
-  const recent = alerts.slice(0, 5)
-
-  const ack = async (a: AlertLog) => {
-    setAcking(a.id)
-    setAckError(null)
-    try {
-      await ackAlert(code, a.id, WORKER_NAME)
-    } catch (e) {
-      setAckError((e as Error).message)
-    } finally {
-      setAcking(null)
-    }
-  }
-
-  const danger = issues.some((i) => i.level === 'danger')
-
-  return (
-    <InfoCard
-      title={`${family.elderName} 님`}
-      subtitle={`보호자 ${family.guardianName} · 가족 코드 ${code}`}
-      icon={danger ? <Siren /> : issues.length ? <ShieldAlert /> : <ShieldCheck />}
-    >
-      <div className="space-y-4">
-        {issues.length === 0 ? (
-          <StatusNote tone="success">지금 확인이 필요한 일이 없어요.</StatusNote>
-        ) : (
-          <ul className="space-y-2" aria-label="확인이 필요해요">
-            {issues.map((i) => (
-              <li key={i.key}>
-                {i.level === 'danger' ? (
-                  <p className="flex items-start gap-2.5 rounded-2xl bg-rose-50 px-4 py-3 text-base font-bold text-rose-700 ring-2 ring-rose-200">
-                    <Siren className="mt-0.5 size-5 shrink-0" aria-hidden />
-                    <span>{i.text}</span>
-                  </p>
-                ) : (
-                  <StatusNote tone="warn">{i.text}</StatusNote>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-
-        <dl className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl bg-white/70 p-4 ring-1 ring-brand-100">
-            <dt className="flex items-center gap-1.5 text-sm font-bold text-ink-soft">
-              <Sun className="size-4" aria-hidden /> 오늘 기상
-            </dt>
-            <dd className="mt-1 text-xl font-black">
-              {today.wakeUpAt ? `${fmtTime(today.wakeUpAt)} 확인` : '아직 확인 전'}
-            </dd>
-          </div>
-          <div className="rounded-2xl bg-white/70 p-4 ring-1 ring-brand-100">
-            <dt className="flex items-center gap-1.5 text-sm font-bold text-ink-soft">
-              <Pill className="size-4" aria-hidden /> 오늘 복약
-            </dt>
-            <dd className="mt-1 text-xl font-black">
-              {meds.length === 0 ? '챙길 약 없음' : `${taken} / ${meds.length}개 복용`}
-            </dd>
-          </div>
-          <div className="rounded-2xl bg-white/70 p-4 ring-1 ring-brand-100">
-            <dt className="text-sm font-bold text-ink-soft">앱 마지막 사용</dt>
-            <dd className="mt-1 text-xl font-black">
-              {family.lastSeenAt ? fromNow(family.lastSeenAt, now) : '기록 없음'}
-            </dd>
-          </div>
-        </dl>
-
-        {family.elderPhone && (
-          <BigButton
-            variant="soft"
-            icon={<Phone />}
-            onClick={() => {
-              window.location.href = `tel:${family.elderPhone}`
-            }}
+      {undo && (
+        <div className="fixed inset-x-0 bottom-4 z-40 mx-auto flex max-w-md items-center gap-3 rounded-2xl bg-ink px-4 py-3 text-white shadow-glass-lg">
+          <p className="min-w-0 flex-1 text-base font-bold">
+            {undo.name} 님 · {undo.resultLabel}으로 기록했어요.
+          </p>
+          <button
+            type="button"
+            onClick={doUndo}
+            className="inline-flex min-h-12 items-center gap-1.5 rounded-xl bg-white/15 px-4 text-base font-extrabold"
           >
-            어르신께 전화하기 ({family.elderPhone})
-          </BigButton>
-        )}
+            <Undo2 className="size-5" aria-hidden /> 되돌리기
+          </button>
+        </div>
+      )}
 
-        <section aria-label="최근 알림">
-          <h2 className="mb-2 text-lg font-extrabold">최근 알림</h2>
-          {recent.length === 0 ? (
-            <p className="text-base text-ink-soft">아직 알림이 없어요.</p>
-          ) : (
-            <ul className="space-y-2">
-              {recent.map((a) => (
-                <li key={a.id} className="rounded-2xl bg-white/70 p-3 ring-1 ring-brand-100">
-                  <p className="text-base font-bold">{a.reason}</p>
-                  <p className="text-sm text-ink-soft">{fromNow(a.at, now)}</p>
-                  {a.ackAt ? (
-                    <p className="mt-1 flex items-center gap-1.5 text-sm font-bold text-emerald-700">
-                      <CheckCheck className="size-4" aria-hidden /> {a.ackBy ?? '확인'} · {fmtTime(a.ackAt)}에
-                      확인했어요
-                    </p>
-                  ) : (
-                    <BigButton
-                      size="md"
-                      variant="soft"
-                      className="mt-2"
-                      loading={acking === a.id}
-                      disabled={acking !== null}
-                      onClick={() => ack(a)}
-                    >
-                      확인했어요
-                    </BigButton>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-          {ackError && (
-            <StatusNote tone="warn" className="mt-2">
-              확인 표시를 보내지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요. ({ackError})
-            </StatusNote>
-          )}
-        </section>
-      </div>
-    </InfoCard>
+      <ActionSheet card={active} onClose={() => setActive(null)} onSaved={onSaved} />
+    </div>
   )
 }

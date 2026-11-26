@@ -1,4 +1,5 @@
 import { cert, getApps, initializeApp } from 'firebase-admin/app'
+import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 import { getMessaging } from 'firebase-admin/messaging'
 
@@ -14,7 +15,7 @@ export function firebaseAdmin() {
     const json = raw.trim().startsWith('{') ? raw : Buffer.from(raw, 'base64').toString('utf8')
     initializeApp({ credential: cert(JSON.parse(json)) })
   }
-  return { db: getFirestore(), messaging: getMessaging() }
+  return { db: getFirestore(), messaging: getMessaging(), auth: getAuth() }
 }
 
 export const isValidCode = (code: unknown): code is string => typeof code === 'string' && /^[A-Z0-9]{6}$/.test(code)

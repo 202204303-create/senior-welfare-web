@@ -10,6 +10,32 @@ import { kstClock, toMinutes, type DayDoc, type FamilyDoc } from './care.js'
 export type Grade = 'P1' | 'P2' | 'P3' | 'P4' | 'P5'
 export type IssueType = 'sos' | 'guardian-unacked' | 'wake-missed' | 'med-repeat' | 'no-contact'
 
+export type ActionResult = 'call_ok' | 'call_no_answer' | 'visit_needed' | 'guardian_notified' | 'other'
+
+/** 복지사가 남긴 처리 기록: families/{code}/actions/{id} (추가만 가능) */
+export interface ActionDoc {
+  id: string
+  at: string
+  by?: string
+  byName?: string
+  type?: '이슈처리' | '상담' | '정정'
+  result?: ActionResult
+  /** 어떤 이슈를 처리한 기록인지 */
+  issueType?: IssueType
+  alertId?: string
+  note?: string
+  followUpAt?: string
+  /** 정정 기록: 이 처리 기록(id)을 취소합니다 */
+  corrects?: string
+}
+
+export interface LastAction {
+  result: ActionResult
+  at: string
+  byName: string
+  followUpAt?: string
+}
+
 export interface OpenIssue {
   type: IssueType
   grade: Grade
@@ -17,10 +43,19 @@ export interface OpenIssue {
   since: string
   text: string
   alertId?: string
+  /** 이 이슈에 복지사가 남긴 가장 최근 처리 (통화 · 받지 않음 등) */
+  lastAction?: LastAction
 }
 
 export interface Summary {
   dateKey: string
+  /** 큐·명단이 summary 만 읽어도 되도록 어르신 정보를 함께 담습니다 */
+  elderName: string
+  elderPhone: string | null
+  guardianName: string | null
+  /** 복지사가 마지막으로 처리한 시각, 오늘 처리한 적이 있는지 */
+  lastActionAt: string | null
+  handledToday: boolean
   todayWakeAt: string | null
   todayMedDone: number
   todayMedTotal: number
@@ -43,7 +78,7 @@ export interface AlertDoc {
   escalatedAt?: string
 }
 
-type FamilyWithSeen = FamilyDoc & { lastSeenAt?: string }
+type FamilyWithSeen = FamilyDoc & { lastSeenAt?: string; elderPhone?: string }
 export type Days = Record<string, DayDoc | undefined>
 
 /** 보호자가 이 시간(분) 넘게 확인하지 않으면 복지사에게 올립니다. (팀 결정 전 기본값) */
@@ -95,9 +130,9 @@ export interface BuildInput {
   family: FamilyWithSeen
   days: Days
   alerts: AlertDoc[]
+  /** 최근 48시간의 복지사 처리 기록 */
+  actions?: ActionDoc[]
   now: Date
-  /** 복지사가 마지막으로 처리한 시각 (연락 공백 계산에 포함) */
-  lastActionAt?: string
   escalateMin?: number
   gapDays?: number
 }
@@ -106,8 +141,8 @@ export function buildSummary({
   family,
   days,
   alerts,
+  actions = [],
   now,
-  lastActionAt,
   escalateMin = ESCALATE_AFTER_MIN,
   gapDays = CONTACT_GAP_DAYS,
 }: BuildInput): Summary {
@@ -119,6 +154,23 @@ export function buildSummary({
   const meds = (family.medications ?? []).filter((m) => !addedTooLateToday(m, family.medGraceMinutes, now))
   const issues: OpenIssue[] = []
 
+  // 정정 기록이 가리키는 처리와 정정 기록 자체는 빼고 봅니다.
+  const corrected = new Set(actions.filter((a) => a.type === '정정' && a.corrects).map((a) => a.corrects as string))
+  const effective = actions
+    .filter((a) => a.type !== '정정' && !corrected.has(a.id) && a.result)
+    .sort((a, b) => b.at.localeCompare(a.at))
+  const lastActionAt = effective[0]?.at
+  const toLast = (a: ActionDoc | undefined): LastAction | undefined =>
+    a && a.result ? { result: a.result, at: a.at, byName: a.byName ?? '복지사', followUpAt: a.followUpAt } : undefined
+  // 같은 이슈(알림 또는 이슈 종류)에 대한 가장 최근 처리
+  const actionFor = (type: IssueType, alertId?: string) =>
+    effective.find((a) => (alertId && a.alertId === alertId) || (!alertId && a.issueType === type))
+  // 통화로 이상 없음을 확인한 처리는 그 이후의 이슈를 닫습니다. (이슈가 생긴 시각 이후의 처리만)
+  const closedByAction = (type: IssueType, since: string, alertId?: string) => {
+    const a = actionFor(type, alertId)
+    return Boolean(a && a.result === 'call_ok' && a.at >= since)
+  }
+
   // P1 긴급: 아직 아무도 확인하지 않은 긴급 요청 (24시간 안)
   // P2 에스컬레이션: 보호자가 N분 넘게 확인하지 않은 기상·복약 알림 (해결되면 제외)
   for (const a of alerts) {
@@ -126,14 +178,24 @@ export function buildSummary({
     const age = now.getTime() - new Date(a.at).getTime()
     if (age >= ALERT_KEEP_MS) continue
     if (a.kind === 'sos') {
-      issues.push({ type: 'sos', grade: 'P1', since: a.at, text: '긴급 도움 요청', alertId: a.id })
+      if (closedByAction('sos', a.at, a.id)) continue
+      issues.push({
+        type: 'sos',
+        grade: 'P1',
+        since: a.at,
+        text: '긴급 도움 요청',
+        alertId: a.id,
+        lastAction: toLast(actionFor('sos', a.id)),
+      })
     } else if (age >= escalateMin * 60_000 && !isResolved(a, days)) {
+      if (closedByAction('guardian-unacked', a.at, a.id)) continue
       issues.push({
         type: 'guardian-unacked',
         grade: 'P2',
         since: a.at,
         text: `보호자 미확인 ${Math.floor(age / 60_000)}분 · ${a.reason}`,
         alertId: a.id,
+        lastAction: toLast(actionFor('guardian-unacked', a.id)),
       })
     }
   }
@@ -141,7 +203,15 @@ export function buildSummary({
   // P3 기상 미확인
   if (!today?.wakeUpAt && minutes > toMinutes(family.wakeUpDeadline)) {
     const since = new Date(`${dateKey}T${family.wakeUpDeadline}:00+09:00`).toISOString()
-    issues.push({ type: 'wake-missed', grade: 'P3', since, text: `${family.wakeUpDeadline}까지 기상 확인 없음` })
+    if (!closedByAction('wake-missed', since)) {
+      issues.push({
+        type: 'wake-missed',
+        grade: 'P3',
+        since,
+        text: `${family.wakeUpDeadline}까지 기상 확인 없음`,
+        lastAction: toLast(actionFor('wake-missed')),
+      })
+    }
   }
 
   // P4 복약 반복 놓침: 어제 기록이 있는데 어제도 안 드셨고 오늘도 시간이 지난 약
@@ -151,7 +221,15 @@ export function buildSummary({
       const missedToday = !taken[m.id] && minutes > toMinutes(m.time) + family.medGraceMinutes
       if (createdBeforeYesterday && missedToday && !yesterday.takenMeds?.[m.id]) {
         const since = new Date(`${dateKey}T${m.time}:00+09:00`).toISOString()
-        issues.push({ type: 'med-repeat', grade: 'P4', since, text: `${m.name} 이틀 연속 놓침` })
+        if (!closedByAction('med-repeat', since)) {
+          issues.push({
+            type: 'med-repeat',
+            grade: 'P4',
+            since,
+            text: `${m.name} 이틀 연속 놓침`,
+            lastAction: toLast(actionFor('med-repeat')),
+          })
+        }
       }
     }
   }
@@ -174,6 +252,7 @@ export function buildSummary({
       grade: 'P5',
       since: lastContactAt,
       text: `${Math.floor((now.getTime() - new Date(lastContactAt).getTime()) / 86_400_000)}일째 연락 없음`,
+      lastAction: toLast(actionFor('no-contact')),
     })
   }
 
@@ -182,6 +261,11 @@ export function buildSummary({
 
   return {
     dateKey,
+    elderName: family.elderName,
+    elderPhone: family.elderPhone ?? null,
+    guardianName: family.guardianName ?? null,
+    lastActionAt: lastActionAt ?? null,
+    handledToday: Boolean(lastActionAt && dayKeyOf(lastActionAt) === dateKey),
     todayWakeAt: today?.wakeUpAt ?? null,
     todayMedDone: meds.filter((m) => taken[m.id]).length,
     todayMedTotal: meds.length,
@@ -198,7 +282,7 @@ export interface Snapshot {
   family: FamilyWithSeen
   days: Days
   alerts: AlertDoc[]
-  lastActionAt?: string
+  actions: ActionDoc[]
 }
 
 /** 가족 한 곳의 요약에 필요한 문서(오늘·어제 기록, 최근 48시간 알림)를 읽습니다. */
@@ -212,11 +296,12 @@ export async function readSnapshot(
   const { dateKey } = kstClock(now)
   const yesterdayKey = kstClock(new Date(now.getTime() - 86_400_000)).dateKey
   const since = new Date(now.getTime() - 2 * 86_400_000).toISOString()
-  const [famSnap, todaySnap, ySnap, alertSnap] = await Promise.all([
+  const [famSnap, todaySnap, ySnap, alertSnap, actionSnap] = await Promise.all([
     family ? Promise.resolve(null) : ref.get(),
     ref.collection('days').doc(dateKey).get(),
     ref.collection('days').doc(yesterdayKey).get(),
     ref.collection('alerts').where('at', '>=', since).get(),
+    ref.collection('actions').where('at', '>=', since).get(),
   ])
   const fam = family ?? (famSnap?.exists ? (famSnap.data() as FamilyWithSeen) : undefined)
   if (!fam) return null
@@ -227,6 +312,7 @@ export async function readSnapshot(
       [yesterdayKey]: ySnap.exists ? (ySnap.data() as DayDoc) : undefined,
     },
     alerts: alertSnap.docs.map((d) => ({ ...(d.data() as AlertDoc), id: d.id })),
+    actions: actionSnap.docs.map((d) => ({ ...(d.data() as ActionDoc), id: d.id })),
   }
 }
 

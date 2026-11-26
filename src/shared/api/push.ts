@@ -10,7 +10,7 @@ const TEAM_VAPID_KEY =
   'BFne05rnLA8nuAhAK6JH-ROA7fyxMAQyELQ3UHKYkQllv9yIHHrEBQivbawVp2jFaR0V3W6O7lXAdyUCL-2M-QY'
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || TEAM_VAPID_KEY
 
-export type PushRole = 'guardian' | 'elder'
+export type PushRole = 'guardian' | 'elder' | 'worker'
 
 /**
  * registered: 화면이 꺼져 있어도 알림을 받음

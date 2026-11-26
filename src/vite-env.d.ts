@@ -10,6 +10,7 @@ interface ImportMetaEnv {
   readonly VITE_FIREBASE_MESSAGING_SENDER_ID?: string
   readonly VITE_FIREBASE_EMULATOR_HOST?: string
   readonly VITE_FIREBASE_DISABLED?: string
+  readonly VITE_AUTH_MODE?: string
   readonly VITE_FIREBASE_VAPID_KEY?: string
 }
 
